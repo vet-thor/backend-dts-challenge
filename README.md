@@ -16,8 +16,8 @@ This is a professional task management app built for the HMCTS DTS Developer Cha
 ---
 
 ## New in v2.0
-- Migrated to the latest open-source Redis fork for high-performance caching.
-- Transitioned from H2 to a production-grade relational database for data persistence.
+- Migrated to the latest open source Redis fork for high performance caching.
+- Transitioned from H2 to a production grade relational database for data persistence.
 - Added native Spring Boot support for automatic infrastructure startup during development.
 - Implemented Testcontainers for isolated, reliable integration tests against real service instances.
 ---
