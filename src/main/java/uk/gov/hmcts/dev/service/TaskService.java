@@ -3,6 +3,9 @@ package uk.gov.hmcts.dev.service;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -64,6 +67,7 @@ public class TaskService {
                 .build();
     }
 
+    @Cacheable(value = "task", key="#id")
     public TaskResponseData getTask(UUID id){
         var response = taskRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(errorMessageHelper.caseNotFoundErrorMessage()));
@@ -74,6 +78,7 @@ public class TaskService {
     }
 
     @Transactional
+    @CachePut(value = "task", key = "#request.id")
     public TaskResponseData updateTask(CaseRequest request){
         var task = taskRepository.findById(request.id())
                 .orElseThrow(() -> new EntityNotFoundException(errorMessageHelper.caseNotFoundErrorMessage()));
@@ -103,6 +108,7 @@ public class TaskService {
     }
 
     @Transactional
+    @CacheEvict(value = "task", key = "#id")
     public void deleteTask(UUID id){
         var response = taskRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(errorMessageHelper.caseNotFoundErrorMessage()));
