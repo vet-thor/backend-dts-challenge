@@ -1,0 +1,47 @@
+TRUNCATE TABLE person;
+insert into person (id,username,password,role) values ('c40b683b-ac7b-5d6b-b0eb-549cb20169b9','staff','$2a$10$iL/s2FtkwDJLvvw9btPvwe33JFw7H/pjWL4.f0ylPalUE02jiCE36','ROLE_STAFF');
+insert into person (id,username,password,role) values ('424e00a0-2dcf-4e0d-b69e-827382effafc','member','$2a$10$iL/s2FtkwDJLvvw9btPvwe33JFw7H/pjWL4.f0ylPalUE02jiCE36','ROLE_STAFF');
+insert into person (id,username,password,role) values (RANDOM_UUID(),'user','$2a$10$iL/s2FtkwDJLvvw9btPvwe33JFw7H/pjWL4.f0ylPalUE02jiCE36','ROLE_USER');
+TRUNCATE TABLE task;
+INSERT INTO task (id, title, description, status, due, created_by)
+VALUES
+    (RANDOM_UUID(), 'Complete project', 'Finish the Spring Boot project', 'IN_PROGRESS', '2023-12-31 23:59:59', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+    (RANDOM_UUID(), 'Write documentation', 'Document all API endpoints', 'NOT_STARTED', '2023-12-15 18:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+    (RANDOM_UUID(), 'Test application', 'Perform integration testing', 'NOT_STARTED', '2023-12-20 12:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Refactor code', 'Improve code quality and structure', 'IN_PROGRESS', '2023-12-10 15:30:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Deploy to production', 'Prepare production deployment', 'NOT_STARTED', '2024-01-05 09:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Create user manual', 'Write guide for end users', 'NOT_STARTED', '2024-01-10 14:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Optimize database', 'Improve query performance', 'COMPLETED', '2023-11-30 16:45:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Implement authentication', 'Add JWT security layer', 'IN_PROGRESS', '2023-12-18 11:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Design UI mockups', 'Create wireframes for frontend', 'COMPLETED', '2023-11-25 10:30:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Set up CI/CD pipeline', 'Configure GitHub Actions', 'NOT_STARTED', '2023-12-22 13:15:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Review pull requests', 'Check team member contributions', 'IN_PROGRESS', '2023-12-08 17:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Update dependencies', 'Upgrade to latest library versions', 'NOT_STARTED', '2023-12-28 10:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Fix critical bug #123', 'Resolve null pointer exception', 'COMPLETED', '2023-11-28 14:30:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Write unit tests', 'Increase test coverage to 80%', 'IN_PROGRESS', '2023-12-14 16:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Prepare presentation', 'Create slides for stakeholders', 'NOT_STARTED', '2024-01-08 15:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Analyze performance', 'Identify bottlenecks in system', 'NOT_STARTED', '2023-12-25 09:30:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Implement caching', 'Add Redis for performance boost', 'IN_PROGRESS', '2023-12-17 11:45:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Create API documentation', 'Generate Swagger/OpenAPI specs', 'COMPLETED', '2023-11-29 13:20:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Setup monitoring', 'Configure Prometheus and Grafana', 'NOT_STARTED', '2024-01-03 10:15:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Conduct security audit', 'Check for vulnerabilities', 'NOT_STARTED', '2024-01-12 14:30:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Migrate legacy data', 'Transfer old system records', 'IN_PROGRESS', '2023-12-19 16:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Implement search feature', 'Add Elasticsearch integration', 'NOT_STARTED', '2024-01-15 11:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Create backup strategy', 'Setup automated database backups', 'COMPLETED', '2023-12-01 09:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Train new team members', 'Onboard junior developers', 'IN_PROGRESS', '2023-12-13 14:00:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Plan sprint #5', 'Prepare tasks for next iteration', 'NOT_STARTED', '2023-12-27 10:30:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Implement file upload', 'Add AWS S3 integration', 'NOT_STARTED', '2024-01-18 15:45:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Fix UI responsiveness', 'Improve mobile experience', 'COMPLETED', '2023-12-05 13:15:00', 'c40b683b-ac7b-5d6b-b0eb-549cb20169b9'),
+        (RANDOM_UUID(), 'Setup error tracking', 'Configure Sentry integration', 'IN_PROGRESS', '2023-12-16 11:30:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Create demo environment', 'Prepare staging for client demos', 'NOT_STARTED', '2024-01-17 10:00:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Implement analytics', 'Add user behavior tracking', 'NOT_STARTED', '2024-01-22 14:15:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Optimize images', 'Compress and resize media assets', 'COMPLETED', '2023-12-06 16:30:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Write technical blog post', 'Document architecture decisions', 'IN_PROGRESS', '2023-12-29 12:00:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Conduct user testing', 'Gather feedback from beta testers', 'NOT_STARTED', '2024-01-19 09:30:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Implement dark mode', 'Add theme switching capability', 'NOT_STARTED', '2024-01-25 15:00:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Setup database replication', 'Configure master-slave replication', 'COMPLETED', '2023-12-07 11:45:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Create admin dashboard', 'Build interface for system management', 'IN_PROGRESS', '2023-12-23 14:30:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Implement rate limiting', 'Add API request throttling', 'NOT_STARTED', '2024-01-29 10:45:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Translate application', 'Add multilingual support', 'NOT_STARTED', '2024-02-05 13:00:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Archive old data', 'Move inactive records to cold storage', 'COMPLETED', '2023-12-09 09:15:00', '424e00a0-2dcf-4e0d-b69e-827382effafc'),
+        (RANDOM_UUID(), 'Plan maintenance window', 'Schedule system downtime for updates', 'IN_PROGRESS', '2023-12-30 16:00:00', '424e00a0-2dcf-4e0d-b69e-827382effafc');
