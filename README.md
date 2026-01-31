@@ -1,11 +1,11 @@
- # Tracking System 1.0 - Authenticated Task Management
-This is a task management app built for the HMCTS DTS Developer Challenge. It helps caseworkers stay on top of their daily tasks with a simple, easy-to-use interface and a reliable backend that keeps everything running smoothly.
+ # Tracking System 2.0 - Authenticated Task Management
+This is a professional task management app built for the HMCTS DTS Developer Challenge. It helps caseworkers stay on top of their daily tasks with a simple, easy-to-use interface and a reliable backend that keeps everything running smoothly. Version 2.0 represents a significant leap from the initial prototype, moving from in-memory mocks to a Docker first, production grade architecture
 
 ---
 
 ## Table of Contents
 
-- [Feature](#feature)
+- [New in v2.0](#new-in-v20)
 - [Setup](#setup)
 - [Authentication Flow](#authentication-flow)
 - [API Documentation](#api-documentation)
@@ -16,29 +16,32 @@ This is a task management app built for the HMCTS DTS Developer Challenge. It he
 
 ---
 
-## Feature
-
-- JWT authentication for secure access
-- User-based task filtering
-- Updated unit tests for auth flows
-- data.sql for demo users and tasks
-- Role-based access control
-- Localisation Support: Language files added for English [UK, US], French and Spanish
-
+## New in v2.0
+- Migrated to the latest open-source Redis fork for high-performance caching.
+- Transitioned from H2 to a production-grade relational database for data persistence.
+- Added native Spring Boot support for automatic infrastructure startup during development.
+- Implemented Testcontainers for isolated, reliable integration tests against real service instances.
 ---
 
 ## Setup
 
-**Requirements:**
-
+**Prerequisites:**
+Docker must be running before starting the application or running tests. The app uses Spring Boot Docker Compose support and Testcontainers to manage the infrastructure automatically.
 - Java 17+
 - Maven
+- Docker Desktop
 
 **Run the application:**
 
 ```bash
 mvn spring-boot:run
 ```
+**What happens behind the scenes?**
+- Orchestration: Spring Boot detects your compose.yaml file and automatically tells Docker to pull and start PostgreSQL 16 and Valkey 9.0.1 containers.
+
+- Dynamic Injection: Spring intercepts the random ports assigned by Docker and pushes those values directly into the application's memory while it's starting up.
+
+- Zero-Config: Because of this automatic discovery, you don't need to manually write database URLs or passwords in application.properties. The app connects to the services automatically.
 
 **Access Points:**
 
@@ -48,13 +51,6 @@ mvn spring-boot:run
 
 - Auth: 
 [`http://localhost:8081/api/v2/auth`](http://localhost:8081/api/v2/auth)
-
-- H2 Console:
-
-[`http://localhost:8081/h2-console`](http://localhost:8081/h2-console)  
-JDBC URL: `jdbc:h2:mem:caseworkerTestDB`  
-*(Credentials in `application.properties`)*
-
 
 ---
 
@@ -91,6 +87,16 @@ Authorization: Bearer <token>
 ```
 ---
 
+## Architecture & Infrastructure
+
+The system has been re-engineered for scalability and reliability:
+
+- Persistence: PostgreSQL handles all relational data (Users, Tasks, Roles).
+
+- Caching: Valkey 9.0.1 provides the caching layer, ensuring high speed access to frequently requested task filters.
+
+- Security: Stateless JWT-based authentication with Role-Based Access Control (RBAC).
+---
 ## API Documentation
 
 Swagger UI:
@@ -110,9 +116,9 @@ Swagger UI:
 ---
 
 ## Testing
+We use Testcontainers to run integration tests against real instances of Postgres and Valkey. This ensures that the code behaves exactly the same in the test environment as it does in production.
 
 Run all tests:
-
 ```bash
 mvn test
 ```
@@ -121,62 +127,7 @@ Includes:
 1. Auth controller test
 2. Token validation
 3. Task access per user
----
 
-## ️Database Configuration
-
-- H2 Console:
-
-[`http://localhost:8081/h2-console`](http://localhost:8081/h2-console)
-- JDBC URL: `jdbc:h2:mem:caseworkerTestDB`  
-  *(Credentials match `.env` or `application.properties`)*
-
----
-
-
-## Advanced Options
-
-###  Switch to PostgreSQL
-
-Update `application.properties`:
-
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/caseworkerTestDB
-spring.datasource.driver-class-name=org.postgresql.Driver
-spring.datasource.username=postgres
-spring.datasource.password=yourpassword
-spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
-```
-
-Or use environment variables:
-
-```bash
-export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/caseworkerTestDB
-export SPRING_DATASOURCE_DRIVER=org.postgresql.Driver
-export SPRING_DATASOURCE_USERNAME=postgres
-export SPRING_DATASOURCE_PASSWORD=yourpassword
-export SPRING_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
-```
-
-Uncomment the following in `application.properties` for development/debugging:
-
-```properties
-
-# SQL Logging Configuration
-spring.jpa.show-sql=true
-spring.jpa.properties.hibernate.format_sql=true
-logging.level.org.hibernate.SQL=DEBUG
-logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
-```
-
-Add PostgreSQL dependency to `pom.xml` file:
-
-```xml
-<dependency>
-  <groupId>org.postgresql</groupId>
-  <artifactId>postgresql</artifactId>
-</dependency>
-```
 ---
 
 ## Localisation

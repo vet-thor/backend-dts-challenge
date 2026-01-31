@@ -1,0 +1,13 @@
+services:
+  postgres:
+    image: 'postgres:16-alpine'
+    environment:
+      - 'POSTGRES_DB=testdb'
+      - 'POSTGRES_PASSWORD=test'
+      - 'POSTGRES_USER=test'
+    ports:
+      - '5432'
+  valkey:
+    image: 'valkey/valkey:9.0.1-alpine'
+    ports:
+      - '6379'
