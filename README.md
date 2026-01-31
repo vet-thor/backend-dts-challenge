@@ -8,10 +8,9 @@ This is a professional task management app built for the HMCTS DTS Developer Cha
 - [New in v2.0](#new-in-v20)
 - [Setup](#setup)
 - [Authentication Flow](#authentication-flow)
+- [Architecture and Infrastructure](#architecture-and-infrastructure)
 - [API Documentation](#api-documentation)
-- [Database Configuration](#database-configuration)
 - [Testing](#testing)
-- [Advanced Options](#advanced-options)
 - [Localisation](#localisation)
 
 ---
@@ -87,7 +86,7 @@ Authorization: Bearer <token>
 ```
 ---
 
-## Architecture & Infrastructure
+## Architecture and Infrastructure
 
 The system has been re-engineered for scalability and reliability:
 
