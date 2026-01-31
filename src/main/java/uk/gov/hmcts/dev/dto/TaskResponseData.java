@@ -8,6 +8,8 @@ import java.util.List;
 @Setter
 @Getter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class TaskResponseData {
     private CaseResponse task;

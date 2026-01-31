@@ -6,8 +6,27 @@ services:
       - 'POSTGRES_PASSWORD=test'
       - 'POSTGRES_USER=test'
     ports:
-      - '5432'
+      - '5432:5432'
   valkey:
     image: 'valkey/valkey:9.0.1-alpine'
     ports:
-      - '6379'
+      - '6379:6379'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  redis-insight:
+    image: 'redis/redisinsight:2.48.0'
+    user: '0'
+    ports:
+      - '5540:5540'
+    shm_size: '1gb'
+    volumes:
+      - redisinsight:/data
+    depends_on:
+      valkey:
+        condition: service_healthy
+
+volumes:
+  redisinsight:
