@@ -122,10 +122,7 @@ Run all tests:
 mvn test
 ```
 
-Includes:
-1. Auth controller test
-2. Token validation
-3. Task access per user
+Developer Note: We utilize @ServiceConnection in our test configurations. This allows the JUnit tests to dynamically discover the container ports, preventing "Port already in use" errors during parallel CI/CD runs.
 
 ---
 
