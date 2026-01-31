@@ -7,9 +7,12 @@ import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import uk.gov.hmcts.dev.config.extensions.PostgresTestContainerConfiguration;
+import uk.gov.hmcts.dev.config.extensions.RedisTestContainerConfiguration;
 import uk.gov.hmcts.dev.dto.AuthRequest;
 import uk.gov.hmcts.dev.model.LangType;
 import uk.gov.hmcts.dev.model.User;
@@ -22,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import({RedisTestContainerConfiguration.class, PostgresTestContainerConfiguration.class})
 @Transactional
 class UserAuthControllerTest {
 

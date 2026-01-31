@@ -7,9 +7,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import uk.gov.hmcts.dev.config.extensions.PostgresTestContainerConfiguration;
+import uk.gov.hmcts.dev.config.extensions.RedisTestContainerConfiguration;
 import uk.gov.hmcts.dev.config.properties.ApplicationProperties;
 import uk.gov.hmcts.dev.model.Task;
 import uk.gov.hmcts.dev.repository.TaskRepository;
@@ -24,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import({RedisTestContainerConfiguration.class, PostgresTestContainerConfiguration.class})
 class ExceptionHandlerConfigIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
