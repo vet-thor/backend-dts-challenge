@@ -35,6 +35,8 @@ jobs:
 
       - name: Build/ Analyse with Maven
         env:
+          LANG: en_GB.UTF-8
+          LC_ALL: en_GB.UTF-8
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           mvn verify -Duser.language=en -Duser.country=GB org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
