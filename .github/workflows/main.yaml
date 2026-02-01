@@ -52,7 +52,7 @@ jobs:
         run: docker build . -t caseworker-service:latest
 
       - name: Docker Scout Scan
-        uses: docker/scout-action@v1
+        uses: docker/scout-action@06666879e6ca3a04ef1015f8990c0b3992298642 # v1.16.1
         with:
           image: caseworker-service:latest
           dockerhub-user: ${{ secrets.DOCKER_USER }}
