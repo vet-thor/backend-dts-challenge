@@ -37,7 +37,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          mvn verify -Duser.language=en -Duser.country=GB org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.organization=${{ github.actor }} \
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
