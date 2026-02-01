@@ -40,11 +40,13 @@ jobs:
           LANG: en_GB.UTF-8
           LC_ALL: en_GB.UTF-8
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+          SONAR_ORG: ${{ vars.SONAR_ORG }}
         run: |
           mvn verify -Duser.language=en -Duser.country=GB org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.organization=${{ vars.SONAR_ORG }} \
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.organization="$SONAR_ORG" \
+            -Dsonar.projectKey="$SONAR_PROJECT_KEY" \
             -Dsonar.coverage.exclusions=**/dto/**,**/util/** \
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
 
