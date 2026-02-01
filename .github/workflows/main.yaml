@@ -23,6 +23,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment:
+      name: Development
     steps:
       - uses: actions/checkout@v4
 
@@ -42,7 +44,9 @@ jobs:
           mvn verify -Duser.language=en -Duser.country=GB org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.organization=${{ github.actor }} \
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.coverage.exclusions=**/dto/**,**/util/** \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
 
       - name: Build Docker Image
         run: docker build . -t caseworker-service:latest
