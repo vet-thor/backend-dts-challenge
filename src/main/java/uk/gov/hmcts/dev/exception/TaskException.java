@@ -7,6 +7,6 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 @Data
 @AllArgsConstructor
-public class CaseException extends RuntimeException {
+public class TaskException extends RuntimeException {
     private String msg;
 }

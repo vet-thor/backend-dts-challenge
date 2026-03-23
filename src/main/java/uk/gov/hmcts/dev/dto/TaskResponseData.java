@@ -12,8 +12,8 @@ import java.util.List;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class TaskResponseData {
-    private CaseResponse task;
-    private List<CaseResponse> tasks;
+    private TaskResponse task;
+    private List<TaskResponse> tasks;
     private long totalElement;
     private int totalPage;
 }

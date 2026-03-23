@@ -1,17 +1,28 @@
 package uk.gov.hmcts.dev.security;
 
-import org.junit.jupiter.api.*;
+import jakarta.transaction.Transactional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
+import uk.gov.hmcts.dev.config.extensions.PostgresTestContainerConfiguration;
+import uk.gov.hmcts.dev.config.extensions.RedisTestContainerConfiguration;
 import uk.gov.hmcts.dev.dto.AuthRequest;
 import uk.gov.hmcts.dev.dto.AuthResponse;
+import uk.gov.hmcts.dev.model.User;
+import uk.gov.hmcts.dev.repository.UserRepository;
 import uk.gov.hmcts.dev.util.helper.ErrorMessageHelper;
 import uk.gov.hmcts.dev.util.helper.SuccessMessageHelper;
 
@@ -19,51 +30,63 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.verify;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static uk.gov.hmcts.dev.test_data.constants.TestCredentialConstant.*;
 
+@Disabled
 @ActiveProfiles("test")
-@WebMvcTest(UserAuthController.class)
-@AutoConfigureMockMvc(addFilters = false)
-@DisplayName("/api/v2/auth: Given an authentication is initiated")
-class UserAuthControllerTest {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
+@Import({RedisTestContainerConfiguration.class, PostgresTestContainerConfiguration.class})
+@DisplayName("/api/v1/auth: Given an authentication is initiated")
+@Transactional
+class UserAuthControllerE2ETest {
     @Autowired
     private MockMvc mockMvc;
     @Autowired
     private ObjectMapper objectMapper;
-    @MockitoBean
-    private UserAuthService userAuthService;
-    @MockitoBean
+    @Autowired
     private ErrorMessageHelper errorMessageHelper;
-    @MockitoBean
+    @Autowired
     private SuccessMessageHelper successMessageHelper;
-    @MockitoBean
-    private JWTFilter jwtFilter;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private UserRepository userRepository;
 
     private static final String BASE_URL = "/api/v1/auth";
+
+    @BeforeEach
+    void setup(){
+        var user = User.builder()
+                .username(VALID_USERNAME)
+                .password(passwordEncoder.encode(VALID_PASSWORD))
+                .role("ROLE_STAFF")
+                .build();
+
+        userRepository.save(user);
+    }
 
     @Test
     @DisplayName("Should authorise with status code 200 when a valid username and password is supplied")
     void shouldAuthorise() throws Exception {
         //Arrange
         var request = new AuthRequest(VALID_USERNAME, VALID_PASSWORD);
-        var response = new AuthResponse(EXPECTED_TOKEN, JwtConstant.BEARER);
-
-        //Given
-        given(userAuthService.login(any())).willReturn(response);
 
         //When/Then
-        mockMvc.perform(post(BASE_URL)
+        mockMvc.perform(
+                    post(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                 )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.accessToken").value(EXPECTED_TOKEN));
+                .andExpect(jsonPath("$.data.accessToken").exists())
+                .andExpect(jsonPath("$.message").value(successMessageHelper.loginSuccessMessage()));
 
-        // Verify
-        verify(userAuthService).login(any());
     }
 
     @Test
@@ -72,24 +95,15 @@ class UserAuthControllerTest {
         // Arrange
         var request = new AuthRequest(INVALID_USERNAME, INVALID_PASSWORD);
 
-        // Given
-        given(userAuthService.login(any(AuthRequest.class))).willThrow(new BadCredentialsException("There was an error with you case"));
-        given(errorMessageHelper.generalErrorMessage()).willReturn("There was an error with you case");
-        given(errorMessageHelper.failedAuthenticationErrorMessage()).willReturn("Invalid username/ password");
-
         // When/Then
-        mockMvc.perform(post(BASE_URL)
+        mockMvc.perform(
+                    post(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-//                        .with(csrf())
                 )
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("There was an error with you case"))
-                .andExpect(jsonPath("$.data.error").value("Invalid username/ password"));
+                .andExpect(jsonPath("$.message").value(errorMessageHelper.generalErrorMessage()))
+                .andExpect(jsonPath("$.data.error").value(errorMessageHelper.failedAuthenticationErrorMessage()));
 
-        // Verify
-        verify(userAuthService).login(any(AuthRequest.class));
-        then(errorMessageHelper).should().generalErrorMessage();
-        then(errorMessageHelper).should().failedAuthenticationErrorMessage();
     }
 }

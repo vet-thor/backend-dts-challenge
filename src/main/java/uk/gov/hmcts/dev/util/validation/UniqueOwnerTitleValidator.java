@@ -24,6 +24,6 @@ public class UniqueOwnerTitleValidator implements ConstraintValidator<UniqueOwne
                 .map(JwtUserDetails::getId)
                 .orElse(null);
 
-        return !taskRepository.existsByTitleAndCreatedBy(title, ownerId);
+        return !taskRepository.existsByTitleIgnoreCaseAndCreatedBy(title, ownerId);
     }
 }

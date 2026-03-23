@@ -6,7 +6,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -21,14 +23,14 @@ import java.util.UUID;
 import static java.util.Objects.nonNull;
 
 @Component
-@AllArgsConstructor
-class JWTFilter extends OncePerRequestFilter {
-    private UserInfoConfigManager userDetailsService;
-    private HandlerExceptionResolver handlerExceptionResolver;
-    private JWTUtil jwtUtil;
+@RequiredArgsConstructor
+public class JWTFilter extends OncePerRequestFilter {
+    private final UserInfoConfigManager userDetailsService;
+    private final HandlerExceptionResolver handlerExceptionResolver;
+    private final JWTUtil jwtUtil;
 
     @Override
-    protected void doFilterInternal(@NotNull HttpServletRequest request, @NotNull HttpServletResponse response, @NotNull FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NotNull FilterChain chain) throws ServletException, IOException {
 
         try {
             var token = extractToken(request);
@@ -55,7 +57,7 @@ class JWTFilter extends OncePerRequestFilter {
     }
 
     private String extractToken(HttpServletRequest request) {
-        var header = request.getHeader(JwtConstant.AUTHORIZATION);
+        var header = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if (nonNull(header) && header.startsWith(JwtConstant.BEARER)) {
             return header.substring(7);

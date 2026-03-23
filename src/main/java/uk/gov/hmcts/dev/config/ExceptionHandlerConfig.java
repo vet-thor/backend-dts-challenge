@@ -104,6 +104,7 @@ public class ExceptionHandlerConfig {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ResponseData<ResponseError<String>>> handleUnexpectedException(Exception e){
         log.error(errorMessage.generalErrorMessage(), e);
+
         return ResponseHandler.generateResponse(
                 errorMessage.generalErrorMessage(),
                 HttpStatus.INTERNAL_SERVER_ERROR,

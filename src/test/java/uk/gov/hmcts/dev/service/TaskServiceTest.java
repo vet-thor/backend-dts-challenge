@@ -1,26 +1,30 @@
 package uk.gov.hmcts.dev.service;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
-import uk.gov.hmcts.dev.dto.CaseRequest;
-import uk.gov.hmcts.dev.dto.CaseResponse;
+import uk.gov.hmcts.dev.dto.TaskResponse;
 import uk.gov.hmcts.dev.dto.SearchCriteria;
 import jakarta.persistence.EntityNotFoundException;
+import uk.gov.hmcts.dev.dto.UpdateTaskRequest;
 import uk.gov.hmcts.dev.mapper.TaskMapper;
 import uk.gov.hmcts.dev.model.Task;
 import uk.gov.hmcts.dev.model.TaskStatus;
 import uk.gov.hmcts.dev.repository.TaskRepository;
+import uk.gov.hmcts.dev.test_data.constants.ServiceTestConstants;
+import uk.gov.hmcts.dev.test_data.arhument_source.UpdateStatusArgumentSource;
 import uk.gov.hmcts.dev.util.helper.ErrorMessageHelper;
 
 import java.time.LocalDateTime;
@@ -32,9 +36,12 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
+import static uk.gov.hmcts.dev.test_data.CaseTestData.*;
 
 @ExtendWith(MockitoExtension.class)
+
 class TaskServiceTest {
 
     @Mock
@@ -46,156 +53,261 @@ class TaskServiceTest {
     @Mock
     private ErrorMessageHelper errorMessageHelper;
 
-    @Mock
-    private SecurityContext securityContext;
-
-    @Mock
-    private Authentication authentication;
-
     @InjectMocks
     private TaskService taskService;
 
-    private Task task1, task2, task3;
+    private List<Task> savedtaskList;
 
     @BeforeEach
-    void setup(){
-        task1 = CaseTestFactory.createTask(UUID.randomUUID(), "Task 1", "A new description 1", TaskStatus.OPEN);
-        task2 = CaseTestFactory.createTask(UUID.randomUUID(), "Task 2", "A new description 2", TaskStatus.OPEN);
-        task3 = CaseTestFactory.createTask(UUID.randomUUID(), "Task 3", "A new description 3", TaskStatus.OPEN);
+    void setup() {
+
+        savedtaskList = List.of(
+                setupTaskEntity(
+                        ServiceTestConstants.REVIEW_EVIDENCE_ID,
+                        ServiceTestConstants.REVIEW_EVIDENCE_TITLE,
+                        ServiceTestConstants.REVIEW_EVIDENCE_DESCRIPTION,
+                        TaskStatus.IN_PROGRESS),
+                setupTaskEntity(
+                        ServiceTestConstants.CLIENT_ASSESSMENT_ID,
+                        ServiceTestConstants.CLIENT_ASSESSMENT_TITLE,
+                        ServiceTestConstants.CLIENT_ASSESSMENT_DESCRIPTION,
+                        TaskStatus.IN_PROGRESS),
+                setupTaskEntity(
+                        ServiceTestConstants.MONTHLY_PROGRESS_REPORT_ID,
+                        ServiceTestConstants.MONTHLY_PROGRESS_REPORT_TITLE,
+                        ServiceTestConstants.MONTHLY_PROGRESS_REPORT_DESCRIPTION,
+                        TaskStatus.IN_PROGRESS)
+        );
     }
 
-    @Test
-    void createTask_shouldSaveTask() {
-        var dto = new CaseRequest(null, task1.getTitle(), task1.getDescription(), task1.getStatus(), task1.getDue());
-        var outputCase = new CaseResponse(task1.getId(), task1.getTitle(), task1.getDescription(), task1.getStatus(), task1.getDue());
+    @Nested
+    @DisplayName("Given one or more task(s) is queried")
+    public class GetTaskTest {
+        @Test
+        @DisplayName("Should return a task response when a valid id is supplied")
+        void getTaskById_shouldReturnTask() {
+            //Arrange
+            TaskResponse reviewEvidenceExpectedResponse = listOfExpectedResponseMockData().getFirst();
+            Task reviewEvidenceSavedTask = savedtaskList.getFirst();
 
-//      // Given
-        when(taskRepository.save(any())).thenReturn(any());
-        when(taskMapper.toTaskResponse(task1)).thenReturn(outputCase);
+            // Given
+            when(taskRepository.findById(ServiceTestConstants.REVIEW_EVIDENCE_ID)).thenReturn(Optional.of(reviewEvidenceSavedTask));
+            when(taskMapper.toTaskResponse(reviewEvidenceSavedTask)).thenReturn(reviewEvidenceExpectedResponse);
 
-        // When
-        var result = taskService.createTask(dto);
+            // When
+            var result = taskService.getTask(ServiceTestConstants.REVIEW_EVIDENCE_ID);
 
-        // Then
-        assertTrue(nonNull(result.getTask()));
-        assertEquals("Task 1", result.getTask().title());
-        assertEquals("A new description 1", result.getTask().description());
-        assertEquals(TaskStatus.OPEN, result.getTask().status());
+            // Then
+            assertTrue(nonNull(result.getTask()));
+            assertEquals(ServiceTestConstants.REVIEW_EVIDENCE_ID, result.getTask().id());
+            assertEquals(ServiceTestConstants.REVIEW_EVIDENCE_TITLE, result.getTask().title());
+
+            // Verify
+            verify(taskRepository).findById(ServiceTestConstants.REVIEW_EVIDENCE_ID);
+            verify(taskMapper).toTaskResponse(reviewEvidenceSavedTask);
+        }
+
+        @Test
+        @DisplayName("Should throw EntityNotFoundException when a task is not found by id")
+        void getTaskById_shouldThrowExceptionWhenNotFound() {
+            // Given
+            when(taskRepository.findById(ServiceTestConstants.REVIEW_EVIDENCE_ID)).thenReturn(Optional.empty());
+
+            // When/Then
+            assertThrows(EntityNotFoundException.class, () -> {
+                taskService.getTask(ServiceTestConstants.REVIEW_EVIDENCE_ID);
+            });
+        }
+
+        @Test
+        @DisplayName("Should return a list of task records when a search specification occurs")
+        void getAllTasks_shouldReturnAllCases() {
+            // Given
+            given(taskRepository.findAll(ArgumentMatchers.<Specification<Task>>any(), any(Pageable.class))).willReturn(new PageImpl<>(savedtaskList));
+            given(taskMapper.pageToTasksResponse(new PageImpl<>(savedtaskList))).willReturn(listOfExpectedResponseMockData());
+
+            // When
+            var result = taskService.getTask(
+                    SearchCriteria.builder()
+                            .page(0)
+                            .limit(10)
+                            .sortBy("createAt")
+                            .sortOrder(Sort.Direction.DESC)
+                            .build()
+            );
+
+            // Then
+            assertEquals(3, result.getTasks().size());
+            assertEquals(
+                    List.of(
+                            ServiceTestConstants.REVIEW_EVIDENCE_TITLE,
+                            ServiceTestConstants.CLIENT_ASSESSMENT_TITLE,
+                            ServiceTestConstants.MONTHLY_PROGRESS_REPORT_TITLE
+                    ),
+                    result.getTasks().stream().map(TaskResponse::title).toList()
+            );
+
+            // Verify
+            verify(taskRepository).findAll(ArgumentMatchers.<Specification<Task>>any(), any(Pageable.class));
+            verify(taskMapper).pageToTasksResponse(new PageImpl<>(savedtaskList));
+        }
     }
 
-    @Test
-    void getTaskById_shouldReturnTask() {
-        var outputCase = new CaseResponse(task1.getId(), task1.getTitle(), task1.getDescription(), task1.getStatus(), task1.getDue());
-        // Given
-        when(taskRepository.findById(task1.getId())).thenReturn(Optional.of(task1));
-        when(taskMapper.toTaskResponse(task1)).thenReturn(outputCase);
+    @Nested
+    @DisplayName("Given a new task is created")
+    public class CreateTaskTest {
+        @Test
+        @DisplayName("Should create new task when valid request is made")
+        void createTask_shouldSaveTask() {
+            //Arrange
+            Task reviewEvidenceSavedTask = savedtaskList.getFirst();
+            TaskResponse reviewEvidenceExpectedResponse = listOfExpectedResponseMockData().getFirst();
+            var reviewEvidenceCreatePayload = reviewEvidenceMockCreateRequestPayload();
 
-        // When
-        var result = taskService.getTask(task1.getId());
+            // Given
+            given(taskMapper.toTask(reviewEvidenceCreatePayload)).willReturn(reviewEvidenceSavedTask);
+            given(taskRepository.save(reviewEvidenceSavedTask)).willReturn(reviewEvidenceSavedTask);
+            given(taskMapper.toTaskResponse(reviewEvidenceSavedTask)).willReturn(reviewEvidenceExpectedResponse);
 
-        // Then
-        assertTrue(nonNull(result.getTask()));
-        assertEquals(task1.getId(), result.getTask().id());
-        assertEquals("Task 1", result.getTask().title());
+            // When
+            var result = taskService.createTask(reviewEvidenceCreatePayload);
+
+            // Then
+            assertTrue(nonNull(result.getTask()));
+            assertEquals(reviewEvidenceExpectedResponse.title(), result.getTask().title());
+            assertEquals(reviewEvidenceExpectedResponse.description(), result.getTask().description());
+            assertEquals(TaskStatus.IN_PROGRESS, result.getTask().status());
+
+            // Verify
+            verify(taskMapper).toTask(reviewEvidenceCreatePayload);
+            verify(taskRepository, times(1)).save(reviewEvidenceSavedTask);
+            verify(taskMapper).toTaskResponse(reviewEvidenceSavedTask);
+        }
     }
 
-    @Test
-    void getTaskById_shouldThrowExceptionWhenNotFound() {
-        // Given
-        when(taskRepository.findById(task1.getId())).thenReturn(Optional.empty());
+    @Nested
+    @DisplayName("Given an existing task is modified")
+    public class UpdateTaskTest {
+        @ParameterizedTest(name = "Scenario {index}: Updated values: {arguments}")
+        @ArgumentsSource(UpdateStatusArgumentSource.class)
+        @DisplayName("Should update when a task is modified")
+        void updateTaskStatus_shouldUpdateStatus(
+                UpdateTaskRequest reviewEvidenceUpdateRequest,
+                String expectedTitle, String expectedDescription, TaskStatus expectedStatus, LocalDateTime expectedDueDate) {
 
-        // When/Then
-        assertThrows(EntityNotFoundException.class, () -> {
-            taskService.getTask(task1.getId());
-        });
+            //Arrange
+            Task reviewEvidenceSavedTask = savedtaskList.getFirst();
+            Task reviewEvidenceModifiedTask = setupTaskEntity(
+                    ServiceTestConstants.REVIEW_EVIDENCE_ID,
+                    expectedTitle,
+                    expectedDescription,
+                    expectedStatus
+            );
+            TaskResponse reviewEvidenceExpectedResponse = new TaskResponse(
+                    ServiceTestConstants.REVIEW_EVIDENCE_ID,
+                    expectedTitle,
+                    expectedDescription,
+                    expectedStatus,
+                    expectedDueDate
+            );
+
+            reviewEvidenceModifiedTask.setUpdatedAt(LocalDateTime.now());
+
+            //Given
+            given(taskRepository.findById(ServiceTestConstants.REVIEW_EVIDENCE_ID)).willReturn(Optional.of(reviewEvidenceSavedTask));
+            given(taskRepository.save(reviewEvidenceSavedTask)).willReturn(reviewEvidenceModifiedTask);
+            given(taskMapper.toTaskResponse(reviewEvidenceModifiedTask)).willReturn(reviewEvidenceExpectedResponse);
+
+            // When
+            var result = taskService.updateTask(reviewEvidenceUpdateRequest);
+
+            // Then
+            assertNotNull(result.getTask());
+            assertEquals(expectedTitle, result.getTask().title());
+            assertEquals(expectedDescription, result.getTask().description());
+            assertEquals(expectedStatus, result.getTask().status());
+            assertEquals(expectedDueDate, result.getTask().due());
+
+            //Verify
+            verify(taskRepository).findById(ServiceTestConstants.REVIEW_EVIDENCE_ID);
+            verify(taskMapper).applyChangesToTask(reviewEvidenceUpdateRequest, reviewEvidenceSavedTask);
+            verify(taskRepository).save(reviewEvidenceSavedTask);
+            verify(taskMapper).toTaskResponse(reviewEvidenceModifiedTask);
+        }
+
+        @Test
+        @DisplayName("Should not update task when an invalid task id is supplied")
+        void updateTaskStatus_shouldThrowExceptionWhenNotFound() {
+            //Arrange
+            var request = new UpdateTaskRequest(
+                    ServiceTestConstants.INVALID_TASK_ID,
+                    ServiceTestConstants.REVIEW_EVIDENCE_TITLE,
+                    ServiceTestConstants.REVIEW_EVIDENCE_DESCRIPTION,
+                    TaskStatus.COMPLETED,
+                    LocalDateTime.now().plusDays(10)
+            );
+
+            //Given
+            given(taskRepository.findById(ServiceTestConstants.INVALID_TASK_ID)).willReturn(Optional.empty());
+
+            //When/Then
+            assertThrows(EntityNotFoundException.class, () -> {
+                taskService.updateTask(request);
+            });
+
+            //Verify
+            verify(taskRepository).findById(ServiceTestConstants.INVALID_TASK_ID);
+        }
     }
 
-    @Test
-    void getAllTasks_shouldReturnAllCases() {
-        // Given
-        Page<Task> mockPage = new PageImpl<>(List.of(task1, task2, task3));
-        var outputCase = new CaseResponse(task1.getId(), task1.getTitle(), task1.getDescription(), task1.getStatus(), task1.getDue());
-        var outputCase2 = new CaseResponse(task2.getId(), task2.getTitle(), task2.getDescription(), task2.getStatus(), task2.getDue());
-        var outputCase3 = new CaseResponse(task3.getId(), task3.getTitle(), task3.getDescription(), task3.getStatus(), task3.getDue());
+    @Nested
+    @DisplayName("Given an existing task is deleted")
+    public class DeleteTaskTest {
+        @Test
+        @DisplayName("Should perform a soft delete of the record when a record is deleted with valid ID")
+        void deleteTask_shouldDeleteTask() {
+            //Arrange
+            Task reviewEvidenceSavedTask = savedtaskList.getFirst();
 
-        when(taskRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(mockPage);
-        when(taskMapper.pageToTasksResponse(mockPage)).thenReturn(List.of(outputCase, outputCase2, outputCase3));
+            // Given
+            given(taskRepository.findById(ServiceTestConstants.REVIEW_EVIDENCE_ID)).willReturn(Optional.ofNullable(reviewEvidenceSavedTask));
 
-        // When
-        var result = taskService.getTask(SearchCriteria.builder().page(0).limit(10).sortBy("createdAt").sortOrder(Sort.Direction.DESC).build());
+            // When /Then
+            taskService.deleteTask(ServiceTestConstants.REVIEW_EVIDENCE_ID);
 
-        // Then
-        assertEquals(3, result.getTasks().size());
-        assertEquals("Task 1", result.getTasks().get(0).title());
-        assertEquals("Task 2", result.getTasks().get(1).title());
-        assertEquals("Task 3", result.getTasks().get(2).title());
+            // Verify
+            verify(taskRepository, times(1)).findById(ServiceTestConstants.REVIEW_EVIDENCE_ID);
+//            verify(taskRepository).save(reviewEvidenceSavedTask);
+        }
+
+        @Test
+        @DisplayName("Should throw EntityNotFoundException when a record is not found")
+        void deleteTask_shouldThrowExceptionWhenNotFound() {
+            //Arrange
+            Task reviewEvidenceSavedTask = savedtaskList.getFirst();
+
+            //Given
+            given(taskRepository.findById(reviewEvidenceSavedTask.getId())).willReturn(Optional.empty());
+
+            //When/Then
+            assertThrows(EntityNotFoundException.class, () -> {
+                taskService.deleteTask(ServiceTestConstants.REVIEW_EVIDENCE_ID);
+            });
+
+            // Verify
+            verify(taskRepository, times(1)).findById(ServiceTestConstants.REVIEW_EVIDENCE_ID);
+            verify(taskRepository, never()).save(reviewEvidenceSavedTask);
+        }
     }
 
-    @Test
-    void updateTaskStatus_shouldUpdateStatus() {
-        // Given
-        var request = new CaseRequest(task1.getId(), task1.getTitle(), null, TaskStatus.COMPLETED, task1.getDue());
-        var outputCase = new CaseResponse(task1.getId(), task1.getTitle(), task1.getDescription(), request.status(), task1.getDue());
-        var updatedCase = CaseTestFactory.createTask(task1.getId(), task1.getTitle(), task1.getDescription(), TaskStatus.COMPLETED);
-        updatedCase.setUpdatedAt(LocalDateTime.now());
+    private static Task setupTaskEntity(UUID taskId, String title, String description, TaskStatus status){
 
-        when(taskRepository.findById(task1.getId())).thenReturn(Optional.of(task1));
-        when(taskRepository.save(any())).thenReturn(any());
-        when(taskMapper.toTaskResponse(updatedCase)).thenReturn(outputCase);
-
-        // When
-        var result = taskService.updateTask(request);
-
-        // Then
-        assertTrue(nonNull(result.getTask()));
-        assertEquals(TaskStatus.COMPLETED, result.getTask().status());
-        verify(taskRepository).save(task1);
-    }
-
-    @Test
-    void updateTaskStatus_shouldThrowExceptionWhenNotFound(){
-        //Given
-        var request = new CaseRequest(task1.getId(), task1.getTitle(), null, TaskStatus.COMPLETED, task1.getDue());
-
-        when(taskRepository.findById(task1.getId())).thenReturn(Optional.empty());
-
-        //When/Then
-        assertThrows(EntityNotFoundException.class, () -> {
-            taskService.updateTask(request);
-        });
-    }
-
-    @Test
-    void deleteTask_shouldDeleteTask() {
-        // Given
-
-        when(taskRepository.findById(task1.getId())).thenReturn(Optional.ofNullable(task1));
-
-        // When
-        taskService.deleteTask(task1.getId());
-
-        // Then
-        verify(taskRepository).save(task1);
-    }
-
-    @Test
-    void deleteTask_shouldThrowExceptionWhenNotFound(){
-        //Given
-        when(taskRepository.findById(task1.getId())).thenReturn(Optional.empty());
-
-        //When/Then
-        assertThrows(EntityNotFoundException.class, () -> {
-            taskService.deleteTask(task1.getId());
-        });
-    }
-}
-
-class CaseTestFactory{
-    public static Task createTask(UUID taskId, String title, String description, TaskStatus status){
-        var task = new Task(title, description, status, LocalDateTime.of(2025, 12, 6, 6, 6));
-        task.setId(taskId);
-        task.setCreatedAt(LocalDateTime.now());
-
-        return task;
+        return Task.builder()
+                .id(taskId)
+                .title(title)
+                .description(description)
+                .status(status)
+                .due(ServiceTestConstants.VALID_DUE_DATE)
+                .createdAt(LocalDateTime.now()).build();
     }
 }

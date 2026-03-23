@@ -1,6 +1,7 @@
 package uk.gov.hmcts.dev.security;
 
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -15,11 +16,11 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-class UserInfoConfigManager implements UserDetailsService, AuthUserDetailsService {
+public class UserInfoConfigManager implements UserDetailsService, AuthUserDetailsService {
     private final UserRepository userRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+    public UserDetails loadUserByUsername(@NonNull String username) throws UsernameNotFoundException {
 
         var user = userRepository.findByUsername(username).orElseThrow(
                 () -> new UsernameNotFoundException(

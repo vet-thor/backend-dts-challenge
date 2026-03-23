@@ -11,14 +11,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import uk.gov.hmcts.dev.util.helper.ErrorMessageHelper;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.*;
 
 import java.util.List;
 
@@ -29,98 +31,147 @@ class ExceptionHandlerConfigTest {
     @InjectMocks
     private ExceptionHandlerConfig handler;
 
+    private static final String VALIDATION_FAILED = "Validation failed";
+    private static final String AUTHENTICATION_FAILED = "Authentication failed";
+    private static final String UNAUTHORISED = "You are not authorized";
+    private static final String JWT_EXPIRED = "JWT expired";
+    private static final String FIELD_VALIDATION_FAILED = "Field validation failed";
+    private static final String FIELD_USERNAME = "username";
+    private static final String MUST_NOT_BE_BLANK = "must not be blank";
+    private static final String GROUPED_RESPONSE_ASSERTIONS = "Grouped Response Assertions";
+    private static final String RESPONSE_SHOULD_NOT_BE_NULL = "Response body should not be null";
+    private static final String UNEXPECTED_ERROR_OCCURRED = "Unexpected error occurred";
+    private static final String INTERNAL_ERROR_OCCURRED = "An internal error occurred";
+
     @Test
     void handleBadCredentialExceptionHandler() {
         // Arrange
-        var exception = new BadCredentialsException("Invalid credentials");
-        when(errorMessage.generalErrorMessage()).thenReturn("Validation failed");
-        when(errorMessage.failedAuthenticationErrorMessage()).thenReturn("Authentication failed");
+        var exception = mock(BadCredentialsException.class);
 
-        // Act
+        // Given
+        given(errorMessage.generalErrorMessage()).willReturn(VALIDATION_FAILED);
+        given(errorMessage.failedAuthenticationErrorMessage()).willReturn(AUTHENTICATION_FAILED);
+
+        // When
         var response = handler.handleBadCredentialExceptionHandler(exception);
 
-        // Assert
-        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-        assertEquals("Validation failed", response.getBody().getMessage());
-        assertEquals("Authentication failed", response.getBody().getData().getError());
+        // Then
+        assertNotNull(response.getBody());
+        assertAll(
+                () -> assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode()),
+                () -> assertEquals(VALIDATION_FAILED, response.getBody().getMessage()),
+                () -> assertEquals(AUTHENTICATION_FAILED, response.getBody().getData().getError())
+        );
     }
 
     @Test
     void handleExpiredJwtTokenExceptionHandler() {
+        // Arrange
         var exception = mock(ExpiredJwtException.class);
-        when(exception.getMessage()).thenReturn("JWT expired");
-        when(errorMessage.generalErrorMessage()).thenReturn("Validation failed");
 
+        // Given
+        given(exception.getMessage()).willReturn(JWT_EXPIRED);
+        given(errorMessage.generalErrorMessage()).willReturn(VALIDATION_FAILED);
+
+        // When
         var response = handler.handleExpiredJwtTokenExceptionHandler(exception);
 
-        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-        assertEquals("Validation failed", response.getBody().getMessage());
-        assertEquals("JWT expired", response.getBody().getData().getError());
+        // Then
+        assertNotNull(response.getBody());
+        assertAll(
+                () -> assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode()),
+                () -> assertEquals(VALIDATION_FAILED, response.getBody().getMessage()),
+                () -> assertEquals(JWT_EXPIRED, response.getBody().getData().getError())
+        );
     }
 
     @Test
     void handleAuthorizationDeniedException() {
-        var exception = new AuthorizationDeniedException("Access denied");
-        when(errorMessage.generalErrorMessage()).thenReturn("Validation failed");
-        when(errorMessage.unauthorizedErrorMessage()).thenReturn("You are not authorized");
+        var exception = mock(AuthorizationDeniedException.class);
 
+        // Given
+        given(errorMessage.generalErrorMessage()).willReturn(VALIDATION_FAILED);
+        given(errorMessage.unauthorizedErrorMessage()).willReturn(UNAUTHORISED);
+
+        // When
         var response = handler.handleAuthorizationDeniedException(exception);
 
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertEquals("Validation failed", response.getBody().getMessage());
-        assertEquals("You are not authorized", response.getBody().getData().getError());
+        // Then
+        assertNotNull(response.getBody());
+        assertAll(
+                () -> assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode()),
+                () -> assertEquals(VALIDATION_FAILED, response.getBody().getMessage()),
+                () -> assertEquals(UNAUTHORISED, response.getBody().getData().getError())
+        );
     }
 
     @Test
     void handleEntityNotFoundExceptionHandler() {
-        var exception = new EntityNotFoundException("Entity not found");
-        when(errorMessage.fieldValidationFailedErrorMessage()).thenReturn("Field validation failed");
+        var exception = mock(UsernameNotFoundException.class);
 
+        // Given
+        given(errorMessage.fieldValidationFailedErrorMessage()).willReturn(FIELD_VALIDATION_FAILED);
+
+        // When
         var response = handler.handleEntityNotFoundExceptionHandler(exception);
 
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("Field validation failed", response.getBody().getMessage());
-        assertEquals("Entity not found", response.getBody().getData().getError());
-    }
+        // Then
+        assertNotNull(response.getBody(), RESPONSE_SHOULD_NOT_BE_NULL);
+        assertAll(GROUPED_RESPONSE_ASSERTIONS,
+                () -> assertNotNull(response.getBody()),
+                () -> assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode()),
+                () -> assertEquals(FIELD_VALIDATION_FAILED, response.getBody().getMessage())
+        );
 
-    @Test
-    void testHandleEntityNotFoundExceptionHandler() {
-        var exception = new UsernameNotFoundException("User not found");
-        when(errorMessage.fieldValidationFailedErrorMessage()).thenReturn("Field validation failed");
-
-        var response = handler.handleEntityNotFoundExceptionHandler(exception);
-
-        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-        assertEquals("Field validation failed", response.getBody().getMessage());
-        assertEquals("User not found", response.getBody().getData().getError());
+        // Verify
+        then(errorMessage).should().fieldValidationFailedErrorMessage();
     }
 
     @Test
     void handleArgumentNotValidExceptionHandler() {
-        var exception = new RuntimeException("Something went wrong");
-        when(errorMessage.generalErrorMessage()).thenReturn("Unexpected error occurred");
-        when(errorMessage.unexpectedErrorMessage()).thenReturn("Internal server error");
+        var exception = mock(RuntimeException.class);
 
+        // Given
+        given(errorMessage.generalErrorMessage()).willReturn(UNEXPECTED_ERROR_OCCURRED);
+        given(errorMessage.unexpectedErrorMessage()).willReturn(INTERNAL_ERROR_OCCURRED);
+
+        // When
         var response = handler.handleUnexpectedException(exception);
 
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals("Unexpected error occurred", response.getBody().getMessage());
-        assertEquals("Internal server error", response.getBody().getData().getError());
+        // Then
+        assertNotNull(response.getBody(), RESPONSE_SHOULD_NOT_BE_NULL);
+        assertAll(GROUPED_RESPONSE_ASSERTIONS,
+                () -> assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode()),
+                () -> assertEquals(UNEXPECTED_ERROR_OCCURRED, response.getBody().getMessage()),
+                () -> assertEquals(INTERNAL_ERROR_OCCURRED, response.getBody().getData().getError())
+        );
+
+        // Verify
+        then(errorMessage).should(times(2)).generalErrorMessage();
+        then(errorMessage).should().unexpectedErrorMessage();
     }
 
     @Test
     void handleUnexpectedException() {
-        var fieldError = new FieldError("object", "username", "must not be blank");
-        var bindingResult = mock(BindingResult.class);
-        when(bindingResult.getAllErrors()).thenReturn(List.of(fieldError));
 
+        var target = new Object();
+        var bindingResult = new BeanPropertyBindingResult(target, "object");
+        bindingResult.addError(new FieldError("object", FIELD_USERNAME, MUST_NOT_BE_BLANK));
         var exception = new MethodArgumentNotValidException(null, bindingResult);
-        when(errorMessage.fieldValidationFailedErrorMessage()).thenReturn("Validation failed");
+
+        when(errorMessage.fieldValidationFailedErrorMessage()).thenReturn(VALIDATION_FAILED);
 
         var response = handler.handleArgumentNotValidExceptionHandler(exception);
 
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals("Validation failed", response.getBody().getMessage());
-        assertEquals("must not be blank", response.getBody().getData().getErrors().get("username"));
+        // Then
+        assertNotNull(response.getBody(), RESPONSE_SHOULD_NOT_BE_NULL);
+        assertAll(GROUPED_RESPONSE_ASSERTIONS,
+                () -> assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode()),
+                () -> assertEquals(VALIDATION_FAILED, response.getBody().getMessage()),
+                () -> assertEquals(MUST_NOT_BE_BLANK, response.getBody().getData().getErrors().get(FIELD_USERNAME))
+        );
+
+        // Verify
+        then(errorMessage).should().fieldValidationFailedErrorMessage();
     }
 }

@@ -10,9 +10,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import uk.gov.hmcts.dev.dto.CaseRequest;
+import uk.gov.hmcts.dev.dto.CreateTaskRequest;
 import uk.gov.hmcts.dev.dto.SearchCriteria;
 import uk.gov.hmcts.dev.dto.TaskResponseData;
+import uk.gov.hmcts.dev.dto.UpdateTaskRequest;
 import uk.gov.hmcts.dev.util.SecurityUtils;
 import uk.gov.hmcts.dev.util.helper.ErrorMessageHelper;
 import uk.gov.hmcts.dev.mapper.TaskMapper;
@@ -22,7 +23,6 @@ import uk.gov.hmcts.dev.repository.TaskRepository;
 import java.util.UUID;
 
 import static java.util.Objects.isNull;
-import static java.util.Objects.nonNull;
 
 @Service
 @RequiredArgsConstructor
@@ -32,11 +32,10 @@ public class TaskService {
     private final TaskMapper mapper;
 
     @Transactional
-    public TaskResponseData createTask(CaseRequest request){
+    public TaskResponseData createTask(CreateTaskRequest request){
 
         if(isNull(request.status())) {
-            request = new CaseRequest(
-                    null,
+            request = new CreateTaskRequest(
                     request.title(),
                     request.description(),
                     TaskStatus.OPEN,
@@ -57,7 +56,7 @@ public class TaskService {
         var pageable = PageRequest.of(keywords.page(), keywords.limit(), Sort.by(keywords.sortOrder(), keywords.sortBy()));
 
         var cases = taskRepository.findAll(
-                CaseSearchSpecification.withCriteria(keywords),
+                TaskSearchSpecification.withCriteria(keywords),
                 pageable);
 
         return TaskResponseData.builder()
@@ -79,31 +78,19 @@ public class TaskService {
 
     @Transactional
     @CachePut(value = "task", key = "#request.id")
-    public TaskResponseData updateTask(CaseRequest request){
+    public TaskResponseData updateTask(UpdateTaskRequest request){
         var task = taskRepository.findById(request.id())
                 .orElseThrow(() -> new EntityNotFoundException(errorMessageHelper.caseNotFoundErrorMessage()));
 
-        if(nonNull(request.title())){
-            task.setTitle(request.title());
-        }
-
-        if(nonNull(request.description())){
-            task.setDescription(request.description());
-        }
-
-        if(nonNull(request.status())){
-            task.setStatus(request.status());
-        }
-
-        if(nonNull(request.due())){
-            task.setDue(request.due());
-        }
+        mapper.applyChangesToTask(request, task);
 
         SecurityUtils.getPrincipal().ifPresent(jwtUserDetails ->
                 task.setUpdatedBy(jwtUserDetails.getId()));
 
+        var updatedTask = taskRepository.save(task);
+
         return TaskResponseData.builder()
-                .task(mapper.toTaskResponse(taskRepository.save(task)))
+                .task(mapper.toTaskResponse(updatedTask))
                 .build();
     }
 

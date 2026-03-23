@@ -1,11 +1,11 @@
 package uk.gov.hmcts.dev.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -13,20 +13,18 @@ import uk.gov.hmcts.dev.dto.*;
 import uk.gov.hmcts.dev.model.TaskStatus;
 import uk.gov.hmcts.dev.service.TaskService;
 import uk.gov.hmcts.dev.util.helper.SuccessMessageHelper;
-import uk.gov.hmcts.dev.util.validation.group.ValidateCreateGroup;
-import uk.gov.hmcts.dev.util.validation.group.ValidateUpdateGroup;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v2/case")
+@RequestMapping("/tasks")
 @RequiredArgsConstructor
 public class TaskController {
     private final TaskService taskService;
     private final SuccessMessageHelper successMessage;
 
-    @GetMapping("/")
+    @GetMapping
     @PreAuthorize("hasRole('STAFF')")
     public ResponseEntity<ResponseData<TaskResponseData>> getTask(
             @RequestParam(name = "title", required = false) String title,
@@ -65,7 +63,7 @@ public class TaskController {
     @GetMapping("/{id}")
     @PreAuthorize("@permissionChecker.isOwnersCase(#id) && hasRole('STAFF')")
     public ResponseEntity<ResponseData<TaskResponseData>> getTaskById(
-            @PathVariable(name = "id") UUID id){
+            @PathVariable UUID id){
         var response = taskService.getTask(id);
 
         return ResponseHandler.generateResponse(
@@ -75,9 +73,9 @@ public class TaskController {
         );
     }
 
-    @PostMapping(value = "/")
+    @PostMapping
     @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<ResponseData<TaskResponseData>> createTask(@RequestBody @Validated(ValidateCreateGroup.class) CaseRequest request){
+    public ResponseEntity<ResponseData<TaskResponseData>> createTask(@RequestBody @Valid CreateTaskRequest request){
         var response = taskService.createTask(request);
 
         return ResponseHandler.generateResponse(
@@ -87,9 +85,9 @@ public class TaskController {
         );
     }
 
-    @PutMapping("/")
+    @PutMapping
     @PreAuthorize("@permissionChecker.isOwnersCase(#request.id) && hasRole('STAFF')")
-    public ResponseEntity<ResponseData<Object>> updateTask(@RequestBody @Validated(ValidateUpdateGroup.class) CaseRequest request){
+    public ResponseEntity<ResponseData<Object>> updateTask(@RequestBody @Valid UpdateTaskRequest request){
 
         return ResponseHandler.generateResponse(
                 successMessage.updateTaskSuccessMessage(),
@@ -101,7 +99,7 @@ public class TaskController {
     @DeleteMapping("/{id}")
     @PreAuthorize("@permissionChecker.isOwnersCase(#id) && hasRole('STAFF')")
     public ResponseEntity<ResponseData<Object>> deleteTask(
-            @PathVariable(name = "id") UUID id){
+            @PathVariable UUID id){
         taskService.deleteTask(id);
 
         return ResponseHandler.generateResponse(

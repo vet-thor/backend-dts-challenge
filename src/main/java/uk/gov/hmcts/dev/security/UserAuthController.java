@@ -12,13 +12,13 @@ import uk.gov.hmcts.dev.dto.ResponseHandler;
 import uk.gov.hmcts.dev.util.helper.SuccessMessageHelper;
 
 @RestController
-@RequestMapping("/api/v2/auth")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 class UserAuthController {
     private final UserAuthService authService;
     private final SuccessMessageHelper successHelper;
 
-    @PostMapping("/")
+    @PostMapping
     public ResponseEntity<ResponseData<AuthResponse>> authorize(@Valid @RequestBody AuthRequest loginDTO){
         return ResponseHandler.generateResponse(
                 successHelper.loginSuccessMessage(),

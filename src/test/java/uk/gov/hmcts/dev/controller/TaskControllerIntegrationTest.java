@@ -1,361 +1,379 @@
 package uk.gov.hmcts.dev.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.transaction.Transactional;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import uk.gov.hmcts.dev.config.extensions.PostgresTestContainerConfiguration;
-import uk.gov.hmcts.dev.config.extensions.RedisTestContainerConfiguration;
-import uk.gov.hmcts.dev.dto.CaseRequest;
-import uk.gov.hmcts.dev.dto.JwtUserDetails;
-import uk.gov.hmcts.dev.model.Task;
+import tools.jackson.databind.ObjectMapper;
+import uk.gov.hmcts.dev.config.ExceptionHandlerConfig;
+import uk.gov.hmcts.dev.config.LocaleConfiguration;
+import uk.gov.hmcts.dev.dto.*;
 import uk.gov.hmcts.dev.model.TaskStatus;
 import uk.gov.hmcts.dev.repository.TaskRepository;
+import uk.gov.hmcts.dev.security.JWTFilter;
+import uk.gov.hmcts.dev.security.PermissionChecker;
+import uk.gov.hmcts.dev.security.SecurityConfig;
+import uk.gov.hmcts.dev.security.UserInfoConfigManager;
+import uk.gov.hmcts.dev.service.TaskService;
 import uk.gov.hmcts.dev.util.SecurityUtils;
 import uk.gov.hmcts.dev.util.helper.ErrorMessageHelper;
 import uk.gov.hmcts.dev.util.helper.FieldHelper;
 import uk.gov.hmcts.dev.util.helper.SuccessMessageHelper;
 
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static uk.gov.hmcts.dev.test_data.CaseTestData.*;
+import static uk.gov.hmcts.dev.test_data.constants.SuccessTestMessageConstant.RESOURCE_DELETED_SUCCESSFULLY;
+import static uk.gov.hmcts.dev.test_data.constants.TestCredentialConstant.*;
+import static uk.gov.hmcts.dev.test_data.constants.ErrorTestMessageConstant.UNAUTHORISED_ERROR_MESSAGE;
+import static uk.gov.hmcts.dev.test_data.constants.ServiceTestConstants.*;
 
-
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Import({RedisTestContainerConfiguration.class, PostgresTestContainerConfiguration.class})
-@Transactional
+@WebMvcTest(TaskController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@Import({LocaleConfiguration.class, SecurityConfig.class, ExceptionHandlerConfig.class})
 class TaskControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
-
+    @MockitoBean
+    private FieldHelper fieldHelper;
+    @MockitoBean
+    private ErrorMessageHelper errorMessageHelper;
+    @MockitoBean
+    private SuccessMessageHelper successMessageHelper;
+    @MockitoBean
+    private TaskRepository taskRepository;
+    @MockitoBean
+    private JWTFilter jwtFilter;
+    @MockitoBean
+    private UserInfoConfigManager userInfoConfigManager;
+    @MockitoBean
+    private TaskService taskService;
+    @MockitoBean(name = "permissionChecker")
+    private PermissionChecker permissionChecker;
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired
-    private SuccessMessageHelper successMessage;
+    private static final String BASE_URL = "/api/v1/tasks";
 
-    @Autowired
-    private ErrorMessageHelper errorMessage;
+    @Nested
+    @DisplayName("Given a user who is authenticated creates a task")
+    public class CreateTaskTest {
+        @Test
+        @WithMockUser(roles = VALID_ROLE_STAFF)
+        @DisplayName("Should create a new task when a record with the same title does not exists by the creator")
+        void shouldCreateTask() throws Exception {
+            var reviewEvidenceRequestPayload = reviewEvidenceMockCreateRequestPayload();
+            var reviewEvidenceResponsePayload = listOfExpectedResponseMockData().getFirst();
+            var taskResponseData = TaskResponseData
+                                .builder()
+                                .task(reviewEvidenceResponsePayload).build();
 
-    @Autowired
-    private FieldHelper fieldHelper;
-
-    @Autowired
-    private TaskRepository taskRepository;
-
-    private List<Task> savedTasks;
-    private final UUID createdByForTask1 = UUID.randomUUID();
-    private final UUID createdByForTask2 = UUID.randomUUID();
-    private static final String BASE_URL = "/api/v2/case/";
-
-    @BeforeEach
-    void setUp() {
-        var task1 = Task.builder()
-                .title("Test title")
-                .description("Test description")
-                .status(TaskStatus.OPEN)
-                .due(LocalDateTime.now().plusDays(180))
-                .createdBy(createdByForTask1)
-                .build();
-        var task2 = Task.builder()
-                .title("Test title 2")
-                .description("Test description 2")
-                .status(TaskStatus.OPEN)
-                .due(LocalDateTime.now().plusDays(180))
-                .createdBy(createdByForTask2)
-                .build();
-
-        taskRepository.deleteAll();
-        savedTasks = taskRepository.saveAllAndFlush(List.of(task1, task2));
-    }
-
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    void shouldCreateTask() throws Exception {
-        var request = new CaseRequest(
-                null,
-                "Test title",// Will create because the owner (createdBy == principal.id) doesn't match existing record
-                "Test description",
-                null,
-                LocalDateTime.now().plusDays(180)
-        );
-
-        mockMvc.perform(post(BASE_URL)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
-                )
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.task.title").value(request.title()))
-                .andExpect(jsonPath("$.data.task.description").value(request.description()))
-                .andExpect(jsonPath("$.data.task.status").value(TaskStatus.OPEN.toString()));
-
-    }
-
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    void shouldNotCreateTaskWhenTitleExistForSameOwner() throws Exception {
-        var request = new CaseRequest(
-                null,
-                "Test title",// Will not create because the owner (createdBy == principal.id) matches existing record
-                "Test description",
-                null,
-                LocalDateTime.now().plusDays(180)
-        );
-
-        try(MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
-            //Setting up the principal to match task 1 createdBy UUID
-            mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(createdByForTask1).build()));
+            given(taskService.createTask(any(CreateTaskRequest.class))).willReturn(taskResponseData);
+            given(successMessageHelper.createTaskSuccessMessage()).willReturn("Task Created Successfully");
 
             mockMvc.perform(post(BASE_URL)
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request))
+                            .content(objectMapper.writeValueAsString(reviewEvidenceRequestPayload))
+                    )
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.message").value("Task Created Successfully"))
+                    .andExpect(jsonPath("$.data.task.title").value(REVIEW_EVIDENCE_TITLE))
+                    .andExpect(jsonPath("$.data.task.description").value(REVIEW_EVIDENCE_DESCRIPTION))
+                    .andExpect(jsonPath("$.data.task.status").value(TaskStatus.IN_PROGRESS.toString()));
+
+        }
+
+        @Test
+        @WithMockUser(roles = VALID_ROLE_STAFF)
+        @DisplayName("Should not create a task when a user has already created task with same title and creator")
+        void shouldNotCreateTaskWhenTitleExistForSameOwner() throws Exception {
+            var reviewEvidenceRequestPayload = reviewEvidenceMockCreateRequestPayload();
+
+            try (MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
+                //Setting up the principal to match task 1 createdBy UUID
+                mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(CREATED_BY_USER_ID).build()));
+                given(taskRepository.existsByTitleIgnoreCaseAndCreatedBy(REVIEW_EVIDENCE_TITLE, CREATED_BY_USER_ID)).willReturn(true);
+
+                mockMvc.perform(post(BASE_URL)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(reviewEvidenceRequestPayload))
+                        )
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.data.errors.title").value("Title already exists"));
+            }
+        }
+
+        @Test
+        @WithMockUser(roles = VALID_ROLE_STAFF)
+        @DisplayName("Should not create task when a task is created without inputting required fields")
+        void shouldNotCreateTaskWithInvalidRequest() throws Exception {
+
+            var invalidRequest = CreateTaskRequest.builder().build();
+
+            mockMvc.perform(post(BASE_URL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(invalidRequest))
+                            .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
                     )
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.data.errors.title").value(errorMessage.duplicateTitleErrorMessage()));
+                    .andExpect(jsonPath("$.data.errors.title").value("Title is required"))
+                    .andExpect(jsonPath("$.data.errors.description").value("Description is required"))
+                    .andExpect(jsonPath("$.data.errors.due").value("Due date is required"));
         }
-    }
 
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    void shouldNotCreateTaskWithInvalidRequest() throws Exception {
+        @Test
+        @WithMockUser(roles = VALID_ROLE_USER)
+        @DisplayName("Should not create task when a user doesn't have the proper create permission")
+        public void shouldNotCreateTaskWithWrongPermission_denyAccess() throws Exception {
+            var reviewEvidenceRequestPayload = reviewEvidenceMockCreateRequestPayload();
 
-        mockMvc.perform(post(BASE_URL)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(CaseRequest.builder().build()))
-                )
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.errors.title").value(fieldHelper.titleRequired()))
-                .andExpect(jsonPath("$.data.errors.description").value(fieldHelper.descriptionRequired()))
-                .andExpect(jsonPath("$.data.errors.due").value(fieldHelper.dueDateRequired()));
+            given(errorMessageHelper.unauthorizedErrorMessage()).willReturn(UNAUTHORISED_ERROR_MESSAGE);
 
-    }
-
-    @Test
-    @WithMockUser(username = "testuser", roles = {"USER"})
-    public void shouldNotCreateTaskWithWrongPermission_denyAccess() throws Exception {
-        var request = new CaseRequest(
-                null,
-                "Test title",
-                "Test description",
-                null,
-                LocalDateTime.now().plusDays(180)
-        );
-        mockMvc.perform(post(BASE_URL)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
-                )
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.data.error").value(errorMessage.unauthorizedErrorMessage()));
-
-    }
-
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    public void shouldReturnAllCases() throws Exception {
-        mockMvc.perform(get(BASE_URL))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.tasks", hasSize(2)));
-    }
-
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    public void shouldReturnCaseWhenSearchByTitle() throws Exception {
-        mockMvc.perform(get(BASE_URL).param("title", "title 2"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.tasks", hasSize(1)))
-                .andExpect(jsonPath("$.data.tasks[0].title").value("Test title 2"));
-    }
-
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    public void shouldReturnCaseWhenSearchByCreatedBy() throws Exception {
-        mockMvc.perform(get(BASE_URL).param("createdBy", createdByForTask1.toString()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.tasks", hasSize(1)))
-                .andExpect(jsonPath("$.data.tasks[0].title").value("Test title"));
-    }
-
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    public void shouldReturnOneById() throws Exception {
-        try(MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
-            //Setting up the principal to match task 1 createdBy UUID
-            mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(savedTasks.get(0).getCreatedBy()).build()));
-
-            mockMvc.perform(get(BASE_URL + "{id}", savedTasks.get(0).getId()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.task.id").value(savedTasks.get(0).getId().toString()))
-                    .andExpect(jsonPath("$.data.task.title").value(savedTasks.get(0).getTitle()))
-                    .andExpect(jsonPath("$.data.task.status").value(savedTasks.get(0).getStatus().toString()));
-        }
-    }
-
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    void shouldNotAllowAccessToRecordByIdIfUserIsNotOwner_denyAccess() throws Exception {
-
-        try (MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
-            mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(UUID.randomUUID()).build()));
-            mockMvc.perform(get(BASE_URL + "{id}", savedTasks.get(0).getId()))
+            mockMvc.perform(
+                        post(BASE_URL)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(reviewEvidenceRequestPayload))
+                    )
                     .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.status").value("FORBIDDEN"))
-                    .andExpect(jsonPath("$.data.error").value(errorMessage.unauthorizedErrorMessage()));
+                    .andExpect(jsonPath("$.data.error").value(UNAUTHORISED_ERROR_MESSAGE));
+
         }
     }
 
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    public void shouldUpdateStatus() throws Exception {
+    @Nested
+    @DisplayName("Given a user who is authenticated fetches a task(s)")
+    public class GetTaskTest {
+        @Test
+        @WithMockUser(roles = VALID_ROLE_STAFF)
+        @DisplayName("Should return all owners task when fetched with a valid ID")
+        public void shouldReturnAllTasks() throws Exception {
+            var listOfTaskResponse = listOfExpectedResponseMockData();
+            var expectedResponse = TaskResponseData.builder()
+                    .tasks(listOfTaskResponse)
+                    .build();
 
-        var request = CaseRequest.builder()
-                .id(savedTasks.get(0).getId())
-                .status(TaskStatus.COMPLETED)
-                .build();
+            given(taskService.getTask(any(SearchCriteria.class))).willReturn(expectedResponse);
 
-        try(MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
-            //Setting up the principal to match task 1 createdBy UUID
-            mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(savedTasks.get(0).getCreatedBy()).build()));
+            mockMvc.perform(get(BASE_URL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.tasks", hasSize(3)))
+                    .andExpect(jsonPath("$.data.tasks[0].title").value(REVIEW_EVIDENCE_TITLE))
+                    .andExpect(jsonPath("$.data.tasks[1].title").value(CLIENT_ASSESSMENT_TITLE))
+                    .andExpect(jsonPath("$.data.tasks[2].title").value(MONTHLY_PROGRESS_REPORT_TITLE));
+        }
+
+        @Test
+        @WithMockUser(roles = VALID_ROLE_STAFF)
+        @DisplayName("Should return an owners task when searched by title of task")
+        public void shouldReturnTaskWhenSearchByTitle() throws Exception {
+            var listOfTaskResponse = listOfExpectedResponseMockData().get(1);
+            var expectedResponse = TaskResponseData.builder()
+                    .tasks(List.of(listOfTaskResponse))
+                    .build();
+            given(taskService.getTask(any(SearchCriteria.class))).willReturn(expectedResponse);
+
+            mockMvc.perform(
+                        get(BASE_URL)
+                            .param("title", CLIENT_ASSESSMENT_TITLE)
+                            .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
+                    )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.tasks", hasSize(1)))
+                    .andExpect(jsonPath("$.data.tasks[0].title").value(CLIENT_ASSESSMENT_TITLE));
+        }
+
+        @Test
+        @WithMockUser(roles = VALID_ROLE_STAFF)
+        @DisplayName("Should return a single task when searched by valid ID")
+        public void shouldReturnOneById() throws Exception {
+
+            var reviewEvidenceResponsePayload = listOfExpectedResponseMockData().getFirst();
+
+            given(permissionChecker.isOwnersCase(REVIEW_EVIDENCE_ID)).willReturn(true);
+            given(taskService.getTask(REVIEW_EVIDENCE_ID)).willReturn(TaskResponseData.builder()
+                    .task(reviewEvidenceResponsePayload).build());
+
+            mockMvc.perform(
+                            get(BASE_URL + "/{id}", REVIEW_EVIDENCE_ID)
+                                    .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
+                    )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.task.id").value(REVIEW_EVIDENCE_ID.toString()))
+                    .andExpect(jsonPath("$.data.task.title").value(REVIEW_EVIDENCE_TITLE))
+                    .andExpect(jsonPath("$.data.task.status").value(TaskStatus.IN_PROGRESS.toString()));
+        }
+
+        @Test
+        @WithMockUser(roles = VALID_ROLE_USER)
+        @DisplayName("Should not return a task when user doesn't own the task")
+        void shouldNotAllowAccessToRecordByIdIfUserIsNotOwner_denyAccess() throws Exception {
+            var taskId = UUID.randomUUID();
+
+            given(permissionChecker.isOwnersCase(taskId)).willReturn(false);
+            given(errorMessageHelper.unauthorizedErrorMessage()).willReturn("You do not have permission to access this resource");
+
+            mockMvc.perform(
+                            get(BASE_URL + "/{id}", taskId)
+                    )
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.status").value("403 FORBIDDEN"))
+                    .andExpect(jsonPath("$.data.error").value("You do not have permission to access this resource"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Given a user who is authenticated updates a task. Only owner can update task")
+    public class UpdateTaskTest {
+        @Test
+        @WithMockUser(roles = "STAFF")
+        @DisplayName("Should update task status when owner updates by valid ID")
+        public void shouldUpdateStatus() throws Exception {
+
+            var modifiedRecord = TaskResponse.builder()
+                    .id(REVIEW_EVIDENCE_ID)
+                    .title(REVIEW_EVIDENCE_TITLE)
+                    .description(REVIEW_EVIDENCE_DESCRIPTION)
+                    .due(VALID_DUE_DATE)
+                    .status(TaskStatus.COMPLETED)
+                    .build();
+
+            var updateTaskRequest = UpdateTaskRequest.builder()
+                    .id(REVIEW_EVIDENCE_ID)
+                    .status(TaskStatus.COMPLETED)
+                    .build();
+
+
+            var responseData = TaskResponseData
+                    .builder()
+                    .task(modifiedRecord)
+                    .build();
+
+            given(permissionChecker.isOwnersCase(REVIEW_EVIDENCE_ID)).willReturn(true);
+            given(taskService.updateTask(any(UpdateTaskRequest.class))).willReturn(responseData);
+            given(successMessageHelper.updateTaskSuccessMessage()).willReturn("Task updated successfully");
 
             mockMvc.perform(
                             put(BASE_URL)
                                     .contentType(MediaType.APPLICATION_JSON)
-                                    .content(objectMapper.writeValueAsString(request))
+                                    .content(objectMapper.writeValueAsString(updateTaskRequest))
                     )
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.task.id").value(savedTasks.get(0).getId().toString()))
-                    .andExpect(jsonPath("$.data.task.title").value(savedTasks.get(0).getTitle()))
-                    .andExpect(jsonPath("$.data.task.status").value(savedTasks.get(0).getStatus().toString()));
+                    .andExpect(jsonPath("$.message").value("Task updated successfully"))
+                    .andExpect(jsonPath("$.data.task.id").value(REVIEW_EVIDENCE_ID.toString()))
+                    .andExpect(jsonPath("$.data.task.title").value(REVIEW_EVIDENCE_TITLE))
+                    .andExpect(jsonPath("$.data.task.status").value(TaskStatus.COMPLETED.toString()));
         }
-    }
 
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    void shouldNotUpdateTaskWithInvalidRequestId() throws Exception {
-        // Updating a task without passing the id should be rejected.
-        // The endpoint will return a bad request with a message
-        try(MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
-            //Setting up the principal to match task 1 createdBy UUID
-            mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(savedTasks.get(0).getCreatedBy()).build()));
+        @Test
+        @DisplayName("Should not update task when an owner updates with an invalid task ID")
+        void shouldNotUpdateTaskWithInvalidRequestId() throws Exception {
+            // Updating a task without passing the id should be rejected.
+            // The endpoint will return a bad request with a message
 
-            mockMvc.perform(put(BASE_URL)
+            var updateTaskRequest = CreateTaskRequest.builder().build();
+
+            mockMvc.perform(
+                        put(BASE_URL)
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(CaseRequest.builder().status(TaskStatus.COMPLETED).build()))
+                            .content(objectMapper.writeValueAsString(updateTaskRequest))
                     )
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.data.errors.id").value(fieldHelper.idRequired()));
+                    .andExpect(jsonPath("$.data.errors.id").value("ID is a required Field"));
         }
-    }
 
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    void shouldNotUpdateTaskWhenUserIsNotOwner_denyAccess() throws Exception {
-        var request = CaseRequest.builder()
-                .id(savedTasks.get(0).getId())
-                .status(TaskStatus.COMPLETED)
-                .build();
+        @Test
+        @WithMockUser(roles = "USER")
+        @DisplayName("Should not update task when a user doesn't have the required permission to update the task")
+        public void shouldNotUpdateTaskWhenUnauthorisedPermission_denyAccess() throws Exception {
 
-        try (MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
-            mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(UUID.randomUUID()).build()));
-            mockMvc.perform(put(BASE_URL)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request))
-                    )
-                    .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.status").value("FORBIDDEN"))
-                    .andExpect(jsonPath("$.data.error").value(errorMessage.unauthorizedErrorMessage()));
-        }
-    }
+            var request = UpdateTaskRequest.builder()
+                    .id(REVIEW_EVIDENCE_ID)
+                    .status(TaskStatus.COMPLETED)
+                    .build();
 
-    @Test
-    @WithMockUser(username = "testuser", roles = {"USER"})
-    public void shouldNotUpdateTaskWhenUnauthorisedPermission_denyAccess() throws Exception {
-        var request = CaseRequest.builder()
-                .id(savedTasks.get(0).getId())
-                .status(TaskStatus.COMPLETED)
-                .build();
-
-        try(MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
-            //Setting up the principal to match task 1 createdBy UUID
-            mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(savedTasks.get(0).getCreatedBy()).build()));
+            given(permissionChecker.isOwnersCase(REVIEW_EVIDENCE_ID)).willReturn(true);
+            given(errorMessageHelper.unauthorizedErrorMessage()).willReturn("You are not authorised to access this resource");
 
             mockMvc.perform(put(BASE_URL)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request))
                     )
                     .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.data.error").value(errorMessage.unauthorizedErrorMessage()));
+                    .andExpect(jsonPath("$.data.error").value("You are not authorised to access this resource"));
         }
     }
 
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    public void shouldDeleteCase() throws Exception {
-        try(MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
-            //Setting up the principal to match task 1 createdBy UUID
-            mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(savedTasks.get(0).getCreatedBy()).build()));
+    @Nested
+    @DisplayName("Given a user who is authenticated deletes a task. Only owner can delete task")
+    public class DeleteTaskTest {
+        @Test
+        @WithMockUser(roles = VALID_ROLE_STAFF)
+        @DisplayName("Should delete a task when a task is deleted by owner")
+        public void shouldDeleteTask() throws Exception {
+
+            given(permissionChecker.isOwnersCase(REVIEW_EVIDENCE_ID)).willReturn(true);
+            given(successMessageHelper.deleteTaskSuccessMessage()).willReturn(RESOURCE_DELETED_SUCCESSFULLY);
 
             // Execute & Verify
-            mockMvc.perform(delete(BASE_URL + "{id}", savedTasks.get(0).getId()))
+            mockMvc.perform(
+                            delete(BASE_URL + "/{id}", REVIEW_EVIDENCE_ID)
+                                    .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
+                    )
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.message").value(successMessage.deleteTaskSuccessMessage()));
+                    .andExpect(jsonPath("$.message").value(RESOURCE_DELETED_SUCCESSFULLY));
 
-            // Verify task is actually deleted
-            assertFalse(taskRepository.existsById(savedTasks.get(0).getId()));
         }
-    }
 
-    @Test
-    @WithMockUser(username = "testuser", roles = {"STAFF"})
-    public void shouldNotDeleteWhenUserIsNotOwner_denyAccess() throws Exception {
-        try(MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
-            //Setting up the principal to not match any tasks createdBy UUID
-            mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(UUID.randomUUID()).build()));
+        @Test
+        @WithMockUser(roles = VALID_ROLE_STAFF)
+        @DisplayName("Should not delete a task when not created by user")
+        public void shouldNotDeleteWhenUserIsNotOwner_denyAccess() throws Exception {
+
+            given(permissionChecker.isOwnersCase(REVIEW_EVIDENCE_ID)).willReturn(false);
+            given(errorMessageHelper.unauthorizedErrorMessage()).willReturn(UNAUTHORISED_ERROR_MESSAGE);
 
             // Execute & Verify
-            mockMvc.perform(delete(BASE_URL + "{id}", savedTasks.get(0).getId()))
+            mockMvc.perform(
+                            delete(BASE_URL + "/{id}", REVIEW_EVIDENCE_ID)
+                    )
                     .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.data.error").value(errorMessage.unauthorizedErrorMessage()));
+                    .andExpect(jsonPath("$.data.error").value(UNAUTHORISED_ERROR_MESSAGE));
 
-            // Verify task is not deleted deleted
-            assertTrue(taskRepository.existsById(savedTasks.get(0).getId()));
         }
-    }
 
-    @Test
-    @WithMockUser(username = "testuser", roles = {"USER"})
-    public void shouldNotDeleteTaskWhenUnauthorisedPermission_denyAccess() throws Exception {
-        // Prepare
-        var taskId = savedTasks.get(0).getId();
+        @Test
+        @WithMockUser(roles = VALID_ROLE_USER)
+        @DisplayName("Should not delete task when user does not have the required permissions")
+        public void shouldNotDeleteTaskWhenUnauthorisedPermission_denyAccess() throws Exception {
 
-        try(MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
-            //Setting up the principal to match task 1 createdBy UUID
-            mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(savedTasks.get(0).getCreatedBy()).build()));
+            given(errorMessageHelper.unauthorizedErrorMessage()).willReturn(UNAUTHORISED_ERROR_MESSAGE);
 
             // Execute & Verify
-            mockMvc.perform(delete(BASE_URL + "{id}", taskId))
+            mockMvc.perform(
+                            delete(BASE_URL + "/{id}", REVIEW_EVIDENCE_ID)
+                                    .with(user(VALID_USERNAME).roles(VALID_ROLE_USER))
+                    )
                     .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.data.error").value(errorMessage.unauthorizedErrorMessage()));
+                    .andExpect(jsonPath("$.data.error").value(UNAUTHORISED_ERROR_MESSAGE));
         }
     }
 }

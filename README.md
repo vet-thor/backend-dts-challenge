@@ -1,11 +1,11 @@
- # Tracking System 2.0 - Authenticated Task Management
-This is a professional task management app built for the HMCTS DTS Developer Challenge. It helps caseworkers stay on top of their daily tasks with a simple, easy-to-use interface and a reliable backend that keeps everything running smoothly. Version 2.0 represents a significant leap from the initial prototype, moving from in-memory mocks to a Docker first, production grade architecture
+ # Tracking System 1.0 - Authenticated Task Management
+This is a professional task management app built for the HMCTS DTS Developer Challenge. It helps caseworkers stay on top of their daily tasks with a simple, easy-to-use interface and a reliable backend that keeps everything running smoothly.
 
 ---
 
 ## Table of Contents
 
-- [New in v2.0](#new-in-v20)
+- [Key features](#key-features)
 - [Setup](#setup)
 - [Authentication Flow](#authentication-flow)
 - [Architecture and Infrastructure](#architecture-and-infrastructure)
@@ -15,11 +15,11 @@ This is a professional task management app built for the HMCTS DTS Developer Cha
 
 ---
 
-## New in v2.0
-- Migrated to the latest open source Redis fork for high performance caching.
-- Transitioned from H2 to a production grade relational database for data persistence.
-- Added native Spring Boot support for automatic infrastructure startup during development.
+## Key features
+- Integrated Valkey 9.0.1 (the latest open-source Redis fork)
+- Native Spring Boot support for automatic Docker infrastructure startup.
 - Implemented Testcontainers for isolated, reliable integration tests against real service instances.
+- Stateless JWT Authentication with Role-Based Access Control (RBAC).
 ---
 
 ## Setup
@@ -46,10 +46,10 @@ mvn spring-boot:run
 
 - API:
 
-[`http://localhost:8081/api/v2/case`](http://localhost:8081/api/v2/case)
+[`http://localhost:8081/api/v1/tasks`](http://localhost:8081/api/v2/case)
 
 - Auth: 
-[`http://localhost:8081/api/v2/auth`](http://localhost:8081/api/v2/auth)
+[`http://localhost:8081/api/v1/auth`](http://localhost:8081/api/v2/auth)
 
 ---
 
@@ -60,7 +60,7 @@ mvn spring-boot:run
 | member | pass123 | ROLE_STAFF |
 | user | pass123 | ROLE_USER |
 
-Login Endpoint: POST /api/v2/auth/
+Login Endpoint: POST /api/v1/auth
 
 Request:
 ```payload
@@ -88,13 +88,13 @@ Authorization: Bearer <token>
 
 ## Architecture and Infrastructure
 
-The system has been re-engineered for scalability and reliability:
+The system has been engineered for scalability and reliability:
 
 - Persistence: PostgreSQL handles all relational data (Users, Tasks, Roles).
 
 - Caching: Valkey 9.0.1 provides the caching layer, ensuring high speed access to frequently requested task filters.
 
-- Security: Stateless JWT-based authentication with Role-Based Access Control (RBAC).
+- Security: Stateless JWT based authentication with Role Based Access Control (RBAC).
 ---
 ## API Documentation
 
@@ -102,14 +102,14 @@ Swagger UI:
 
 [`http://localhost:8081/swagger-ui/index.html`](http://localhost:8081/swagger-ui/index.html)
 
-| Method | Endpoint | Description                     |
-|--------|------------------|---------------------------------|
-| POST   | `/api/v2/auth/` | Login and Recieve JWT           |
-| POST   | `/api/v2/case`   | Create new case (auth required) |
-| GET    | `/api/v2/case`  | List all cases  (auth required) |
-| GET    | `/api/v2/case/{id}` | Get case by ID (auth required)  |
-| PUT    | `/api/v2/case/{id}` | Update case (auth required)     |
-| DELETE | `/api/v2/case/{id}` | Delete case (auth required)    |
+| Method | Endpoint             | Description                     |
+|--------|----------------------|---------------------------------|
+| POST   | `/api/v1/auth/`      | Login and Recieve JWT           |
+| POST   | `/api/v1/tasks`      | Create new case (auth required) |
+| GET    | `/api/v1/tasks`      | List all cases  (auth required) |
+| GET    | `/api/v1/tasks/{id}` | Get case by ID (auth required)  |
+| PUT    | `/api/v1/tasks/{id}` | Update case (auth required)     |
+| DELETE | `/api/v1/tasks/{id}` | Delete case (auth required)    |
  
 
 ---
@@ -133,7 +133,7 @@ The following languages are supported English, French and Spanish
 
 Usage
 ```http
-GET /api/v2/case?locale=en-gb
+GET /api/v1/case?locale=en-gb
 ```
 
 Supported Locale Values:

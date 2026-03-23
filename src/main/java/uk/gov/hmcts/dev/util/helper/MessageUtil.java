@@ -27,13 +27,13 @@ class MessageUtil {
     }
 
     private Locale getLocale(){
-        var localeParam = request.getParameter("locale");
+        try {
+            var localeParam = request.getParameter("locale");
 
-        if(nonNull(localeParam)){
-            try {
+            if(nonNull(localeParam)){
                 return Locale.forLanguageTag(localeParam);
-            }catch (Exception ignored){}
-        }
+            }
+        }catch (Exception ignored){}
 
         return Locale.getDefault();
     }

@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "task")
 @SuperBuilder
-@AllArgsConstructor
+//@AllArgsConstructor
 @NoArgsConstructor
 @SQLRestriction("deleted <> true")
 public class Task extends AbstractBaseEntity{

@@ -2,10 +2,11 @@ package uk.gov.hmcts.dev;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import uk.gov.hmcts.dev.config.properties.JwtProperties;
 
-@EnableCaching
 @SpringBootApplication
+@EnableConfigurationProperties(JwtProperties.class)
 public class TrackingSystemApplication {
 
 	public static void main(String[] args) {

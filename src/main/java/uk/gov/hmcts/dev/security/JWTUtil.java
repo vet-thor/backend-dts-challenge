@@ -1,12 +1,14 @@
 package uk.gov.hmcts.dev.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Header;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
-import uk.gov.hmcts.dev.config.properties.ApplicationProperties;
+import uk.gov.hmcts.dev.config.properties.JwtProperties;
 import uk.gov.hmcts.dev.dto.JwtUserDetails;
 import uk.gov.hmcts.dev.util.StringUtil;
 
@@ -18,12 +20,12 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
-@AllArgsConstructor
+@RequiredArgsConstructor
 class JWTUtil {
-    private ApplicationProperties appProps;
+    private final JwtProperties jwtProperties;
 
     private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(appProps.getSecurityKey().getBytes());
+        return Keys.hmacShaKeyFor(jwtProperties.secret().getBytes());
     }
 
     public String extractSubject(String token) {
@@ -36,19 +38,25 @@ class JWTUtil {
     }
 
     public Date extractExpiration(String token) {
-        return extractAllClaims(token).getExpiration();
+        var claims = extractAllClaims(token);
+
+        return claims.getExpiration();
     }
 
     private Claims extractAllClaims(String token) {
+        var signingKey = getSigningKey();
+
         return Jwts.parser()
-                .verifyWith(getSigningKey())
+                .verifyWith(signingKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
     }
 
     private Boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        var expiration = extractExpiration(token);
+
+        return expiration.before(new Date());
     }
 
     public String generateToken(JwtUserDetails userDetails) {
@@ -72,13 +80,15 @@ class JWTUtil {
 
     private String createToken(Map<String, Object> claims, String subject) {
         return Jwts.builder()
-                .claims(claims)
-                .subject(subject)
-                .header().empty().add(JwtConstant.TYP,JwtConstant.JWT)
+                .header()
+                .type(Header.JWT_TYPE)
+                .add(JwtConstant.TYP, JwtConstant.JWT)
                 .and()
-                .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + appProps.getJwtTimeout()))
-                .signWith(getSigningKey())
+                .subject(subject)
+                .claims(claims)
+                .issuedAt(new Date())
+                .expiration(jwtProperties.calculateExpiration())
+                .signWith(getSigningKey(), Jwts.SIG.HS256)
                 .compact();
     }
 

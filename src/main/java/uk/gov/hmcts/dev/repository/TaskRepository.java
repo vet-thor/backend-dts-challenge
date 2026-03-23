@@ -13,10 +13,7 @@ import java.util.UUID;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, UUID>, JpaSpecificationExecutor<Task> {
-    @Query(value = "select case when count(c.*)> 0 then true else false end from task c where lower(c.title) = lower(:title) and deleted <> true", nativeQuery = true)
-    boolean existsByTitle(@NotEmpty(message = "Title is required") String title);
-    @Query(value = "select case when count(c.*)> 0 then true else false end from task c where lower(c.title) = lower(:title) and c.created_by = :createdBy and deleted <> true", nativeQuery = true)
-    boolean existsByTitleAndCreatedBy(@NotEmpty(message = "Title is required") String title, @NotNull UUID createdBy);
-
-    boolean existsByIdAndCreatedBy(UUID caseId, UUID createBy);
+    boolean existsByIdAndCreatedBy(UUID taskId, UUID createBy);
+    boolean existsByTitleIgnoreCase(String title);
+    boolean existsByTitleIgnoreCaseAndCreatedBy(String title, UUID createdBy);
 }

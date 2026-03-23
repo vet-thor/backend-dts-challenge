@@ -11,7 +11,7 @@ import java.util.List;
 
 import static java.util.Objects.*;
 
-public class CaseSearchSpecification {
+public class TaskSearchSpecification {
   public static Specification<Task> withCriteria(SearchCriteria keyword) {
     return (root, query, cb) -> {
       List<Predicate> predicates = new ArrayList<>();
