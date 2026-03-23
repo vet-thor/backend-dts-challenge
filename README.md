@@ -1,5 +1,5 @@
  # Tracking System 1.0 - Authenticated Task Management
-This is a professional task management app built for the HMCTS DTS Developer Challenge. It helps caseworkers stay on top of their daily tasks with a simple, easy-to-use interface and a reliable backend that keeps everything running smoothly.
+This is a professional task management app built for the HMCTS DTS Developer Challenge. It helps caseworkers stay on top of their daily tasks with a simple, easy to use interface and a reliable backend that keeps everything running smoothly.
 
 ---
 
@@ -19,7 +19,7 @@ This is a professional task management app built for the HMCTS DTS Developer Cha
 - Integrated Valkey 9.0.1 (the latest open-source Redis fork)
 - Native Spring Boot support for automatic Docker infrastructure startup.
 - Implemented Testcontainers for isolated, reliable integration tests against real service instances.
-- Stateless JWT Authentication with Role-Based Access Control (RBAC).
+- Stateless JWT Authentication with Role Based Access Control (RBAC).
 ---
 
 ## Setup
@@ -40,7 +40,7 @@ mvn spring-boot:run
 
 - Dynamic Injection: Spring intercepts the random ports assigned by Docker and pushes those values directly into the application's memory while it's starting up.
 
-- Zero-Config: Because of this automatic discovery, you don't need to manually write database URLs or passwords in application.properties. The app connects to the services automatically.
+- Zero Config: Because of this automatic discovery, you don't need to manually write database URLs or passwords in application.properties. The app connects to the services automatically.
 
 **Access Points:**
 
