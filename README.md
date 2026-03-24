@@ -102,11 +102,11 @@ Swagger UI:
 
 [`http://localhost:8081/swagger-ui/index.html`](http://localhost:8081/swagger-ui/index.html)
 
-| Method | Endpoint             | Description                     |
-|--------|----------------------|---------------------------------|
-| POST   | `/api/v1/auth/`      | Login and Recieve JWT           |
-| POST   | `/api/v1/tasks`      | Create new case (auth required) |
-| GET    | `/api/v1/tasks`      | List all cases  (auth required) |
+| Method | Endpoint            | Description                     |
+|--------|---------------------|---------------------------------|
+| POST   | `/api/v1/auth`      | Login and Recieve JWT           |
+| POST   | `/api/v1/tasks`     | Create new case (auth required) |
+| GET    | `/api/v1/tasks`     | List all cases  (auth required) |
 | GET    | `/api/v1/tasks/{id}` | Get case by ID (auth required)  |
 | PUT    | `/api/v1/tasks/{id}` | Update case (auth required)     |
 | DELETE | `/api/v1/tasks/{id}` | Delete case (auth required)    |
