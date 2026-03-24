@@ -14,6 +14,10 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void configurePathMatch(PathMatchConfigurer configurer) {
-        configurer.addPathPrefix(apiVersion, HandlerTypePredicate.forAnnotation(RestController.class));
+        configurer.addPathPrefix(apiVersion,
+                HandlerTypePredicate.forAnnotation(RestController.class)
+                        // This line prevents the prefix from breaking Swagger/OpenAPI
+                        .and(type -> !type.getPackageName().startsWith("org.springdoc"))
+        );
     }
 }
