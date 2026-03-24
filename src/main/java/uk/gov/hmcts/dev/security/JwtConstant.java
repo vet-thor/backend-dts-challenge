@@ -7,7 +7,7 @@ interface JwtConstant {
     String JWT = "JWT";
     String[] PUBLIC_URLS = {
             "/v3/api-docs/**",
-            "/swagger-ui/**",
-            "/h2-console/**"
+            "/v3/api-docs.yaml",
+            "/swagger-ui/**"
     };
 }
