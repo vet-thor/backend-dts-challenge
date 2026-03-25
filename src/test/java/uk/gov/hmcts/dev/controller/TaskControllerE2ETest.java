@@ -18,6 +18,7 @@ import org.springframework.util.MultiValueMap;
 import tools.jackson.databind.ObjectMapper;
 import uk.gov.hmcts.dev.config.extensions.PostgresTestContainerConfiguration;
 import uk.gov.hmcts.dev.config.extensions.RedisTestContainerConfiguration;
+import uk.gov.hmcts.dev.config.properties.ApiProperties;
 import uk.gov.hmcts.dev.dto.CreateTaskRequest;
 import uk.gov.hmcts.dev.dto.JwtUserDetails;
 import uk.gov.hmcts.dev.dto.UpdateTaskRequest;
@@ -53,6 +54,7 @@ import static uk.gov.hmcts.dev.test_data.constants.ServiceTestConstants.*;
 @AutoConfigureMockMvc
 @Import({RedisTestContainerConfiguration.class, PostgresTestContainerConfiguration.class})
 @Transactional
+@DisplayName("/api/v1/Tasks")
 class TaskControllerE2ETest {
 
     @Autowired
@@ -67,9 +69,9 @@ class TaskControllerE2ETest {
     private FieldHelper fieldHelper;
     @Autowired
     private TaskRepository taskRepository;
+    @Autowired
+    private ApiProperties apiProperties;
     private List<Task> savedTaskList;
-
-    private static final String BASE_URL = "/api/v1/tasks";
 
     @BeforeEach
     void setUp() {
@@ -98,7 +100,7 @@ class TaskControllerE2ETest {
     }
 
     @Nested
-    @DisplayName("Given a user who is authenticated creates a task")
+    @DisplayName("POST: Given a user who is authenticated creates a task")
     public class CreateTaskTest {
         @Test
         @DisplayName("Should create a new task when a record with the same title does not exists by the creator")
@@ -109,7 +111,7 @@ class TaskControllerE2ETest {
                 //Setting up the principal to match task 1 createdBy UUID
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(CREATED_BY_USER_ID).build()));
 
-                mockMvc.perform(post(BASE_URL)
+                mockMvc.perform(post(apiProperties.getTaskEndpoint())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(reviewEvidenceRequestPayload))
                                 .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
@@ -131,7 +133,7 @@ class TaskControllerE2ETest {
                 //Setting up the principal to match task 1 createdBy UUID
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(CREATED_BY_USER_ID).build()));
 
-                mockMvc.perform(post(BASE_URL)
+                mockMvc.perform(post(apiProperties.getTaskEndpoint())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(reviewEvidenceRequestPayload))
                                 .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
@@ -149,7 +151,7 @@ class TaskControllerE2ETest {
                 //Setting up the principal to match task 1 createdBy UUID
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(CREATED_BY_USER_ID).build()));
 
-            mockMvc.perform(post(BASE_URL)
+            mockMvc.perform(post(apiProperties.getTaskEndpoint())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(CreateTaskRequest.builder().build()))
                             .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
@@ -166,7 +168,7 @@ class TaskControllerE2ETest {
         public void shouldNotCreateTaskWithWrongPermission_denyAccess() throws Exception {
             var reviewEvidenceRequestPayload = reviewEvidenceMockCreateRequestPayload();
 
-            mockMvc.perform(post(BASE_URL)
+            mockMvc.perform(post(apiProperties.getTaskEndpoint())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(reviewEvidenceRequestPayload))
                             .with(user(VALID_USERNAME).roles(VALID_ROLE_USER))
@@ -178,7 +180,7 @@ class TaskControllerE2ETest {
     }
 
     @Nested
-    @DisplayName("Given a user who is authenticated fetches a task(s)")
+    @DisplayName("GET: Given a user who is authenticated fetches a task(s)")
     public class GetTaskTest {
         @Test
         @DisplayName("Should return all owners task when fetched with a valid ID")
@@ -189,7 +191,7 @@ class TaskControllerE2ETest {
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(CREATED_BY_USER_ID).build()));
 
                 mockMvc.perform(
-                            get(BASE_URL)
+                            get(apiProperties.getTaskEndpoint())
                                 .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
                         )
                         .andExpect(status().isOk())
@@ -207,7 +209,7 @@ class TaskControllerE2ETest {
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(CREATED_BY_USER_ID).build()));
 
                 mockMvc.perform(
-                            get(BASE_URL)
+                            get(apiProperties.getTaskEndpoint())
                                 .params(MultiValueMap.fromSingleValue(params))
                                 .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
                         )
@@ -227,7 +229,7 @@ class TaskControllerE2ETest {
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(CREATED_BY_USER_ID).build()));
 
                 mockMvc.perform(
-                                get(BASE_URL + "/{id}", taskId)
+                                get(apiProperties.getTaskEndpoint() + "/{id}", taskId)
                                         .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
                         )
                         .andExpect(status().isOk())
@@ -245,7 +247,7 @@ class TaskControllerE2ETest {
             try (MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(SECOND_CREATED_BY_USER_ID).build()));
                 mockMvc.perform(
-                                get(BASE_URL + "/{id}", taskId)
+                                get(apiProperties.getTaskEndpoint() + "/{id}", taskId)
                                         .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
                         )
                         .andExpect(status().isForbidden())
@@ -256,7 +258,7 @@ class TaskControllerE2ETest {
     }
 
     @Nested
-    @DisplayName("Given a user who is authenticated updates a task. Only owner can update task")
+    @DisplayName("PUT: Given a user who is authenticated updates a task. Only owner can update task")
     public class UpdateTaskTest {
         @Test
         @DisplayName("Should update task status when owner updates by valid ID")
@@ -273,7 +275,7 @@ class TaskControllerE2ETest {
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(savedTaskList.getFirst().getCreatedBy()).build()));
 
                 mockMvc.perform(
-                                put(BASE_URL)
+                                put(apiProperties.getTaskEndpoint())
                                         .contentType(MediaType.APPLICATION_JSON)
                                         .content(objectMapper.writeValueAsString(updateTaskRequest))
                                         .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
@@ -294,7 +296,7 @@ class TaskControllerE2ETest {
                 //Setting up the principal to match task 1 createdBy UUID
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(CREATED_BY_USER_ID).build()));
 
-                mockMvc.perform(put(BASE_URL)
+                mockMvc.perform(put(apiProperties.getTaskEndpoint())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(CreateTaskRequest.builder().status(TaskStatus.COMPLETED).build()))
                                 .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
@@ -317,7 +319,7 @@ class TaskControllerE2ETest {
             try (MockedStatic<SecurityUtils> mockedSecurityUtils = Mockito.mockStatic(SecurityUtils.class)) {
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(UUID.randomUUID()).build()));
 
-                mockMvc.perform(put(BASE_URL)
+                mockMvc.perform(put(apiProperties.getTaskEndpoint())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request))
                                 .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
@@ -342,7 +344,7 @@ class TaskControllerE2ETest {
                 //Setting up the principal to match task 1 createdBy UUID
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(savedTaskList.getFirst().getCreatedBy()).build()));
 
-                mockMvc.perform(put(BASE_URL)
+                mockMvc.perform(put(apiProperties.getTaskEndpoint())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request))
                                 .with(user(VALID_USERNAME).roles(VALID_ROLE_USER))
@@ -354,7 +356,7 @@ class TaskControllerE2ETest {
     }
 
     @Nested
-    @DisplayName("Given a user who is authenticated deletes a task. Only owner can delete task")
+    @DisplayName("DELETE: Given a user who is authenticated deletes a task. Only owner can delete task")
     public class DeleteTaskTest {
         @Test
         @DisplayName("Should delete a task when a task is deleted by owner")
@@ -367,7 +369,7 @@ class TaskControllerE2ETest {
 
                 // Execute & Verify
                 mockMvc.perform(
-                                delete(BASE_URL + "/{id}", taskId)
+                                delete(apiProperties.getTaskEndpoint() + "/{id}", taskId)
                                         .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
                         )
                         .andExpect(status().isOk())
@@ -389,7 +391,7 @@ class TaskControllerE2ETest {
 
                 // Execute & Verify
                 mockMvc.perform(
-                                delete(BASE_URL + "/{id}", taskId)
+                                delete(apiProperties.getTaskEndpoint() + "/{id}", taskId)
                                         .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
                         )
                         .andExpect(status().isForbidden())
@@ -412,7 +414,7 @@ class TaskControllerE2ETest {
 
                 // Execute & Verify
                 mockMvc.perform(
-                                delete(BASE_URL + "/{id}", taskId)
+                                delete(apiProperties.getTaskEndpoint() + "/{id}", taskId)
                                         .with(user(VALID_USERNAME).roles(VALID_ROLE_USER))
                         )
                         .andExpect(status().isForbidden())
