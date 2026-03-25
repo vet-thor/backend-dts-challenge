@@ -13,11 +13,11 @@ import java.util.UUID;
 public class PermissionChecker {
     private final TaskRepository taskRepository;
 
-    public boolean isOwnersCase(UUID caseId){
+    public boolean isOwnersTask(UUID taskId){
         var ownerId = SecurityUtils.getPrincipal()
                 .map(JwtUserDetails::getId)
                 .orElse(null);
 
-        return taskRepository.existsByIdAndCreatedBy(caseId, ownerId);
+        return taskRepository.existsByIdAndCreatedBy(taskId, ownerId);
     }
 }

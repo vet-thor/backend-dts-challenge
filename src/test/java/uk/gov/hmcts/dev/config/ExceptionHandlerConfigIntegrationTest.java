@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import uk.gov.hmcts.dev.config.extensions.PostgresTestContainerConfiguration;
 import uk.gov.hmcts.dev.config.extensions.RedisTestContainerConfiguration;
+import uk.gov.hmcts.dev.config.properties.ApiProperties;
 import uk.gov.hmcts.dev.config.properties.JwtProperties;
 import uk.gov.hmcts.dev.model.Task;
 import uk.gov.hmcts.dev.util.helper.ErrorMessageHelper;
@@ -45,13 +46,13 @@ class ExceptionHandlerConfigIntegrationTest {
     private JwtProperties jwtProperties;
     @Autowired
     private ErrorMessageHelper errorMessage;
-
-    private static final String BASE_URL = "/api/v1/tasks";
+    @Autowired
+    private ApiProperties apiProperties;
 
     @Test
     void handleArgumentNotValidExceptionHandler() throws Exception {
         mockMvc.perform(
-                        post(BASE_URL)
+                        post(apiProperties.getTaskEndpoint())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(new Task()))
                                 .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
@@ -66,7 +67,7 @@ class ExceptionHandlerConfigIntegrationTest {
     @Test
     void handleArgumentNotValidExceptionHandler_forPut() throws Exception{
         mockMvc.perform(
-                        put(BASE_URL)
+                        put(apiProperties.getTaskEndpoint())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(new Task()))
                                 .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
@@ -79,7 +80,7 @@ class ExceptionHandlerConfigIntegrationTest {
     @Test
     void handleUnexpectedException() throws Exception {
         mockMvc.perform(
-                        post(BASE_URL)
+                        post(apiProperties.getTaskEndpoint())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
                 )
@@ -96,7 +97,7 @@ class ExceptionHandlerConfigIntegrationTest {
                 .signWith(Keys.hmacShaKeyFor(jwtProperties.secret().getBytes()))
                 .compact();
 
-        mockMvc.perform(get(BASE_URL)
+        mockMvc.perform(get(apiProperties.getTaskEndpoint())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken)
                         .contentType(MediaType.APPLICATION_JSON)
                 )
