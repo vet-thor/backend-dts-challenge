@@ -41,7 +41,7 @@ public class TaskController {
             @ApiResponse(
                     responseCode = "200",
                     description = "Task retrieved successfully",
-                    content = @Content(schema = @Schema(implementation = TaskResponseData.class))
+                    content = @Content(schema = @Schema(hidden = true))
             ),
             @ApiResponse(
                     responseCode = "403",
@@ -103,17 +103,17 @@ public class TaskController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("@permissionChecker.isOwnersCase(#id) && hasRole('STAFF')")
+    @PreAuthorize("@permissionChecker.isOwnersTask(#id) && hasRole('STAFF')")
     @Operation(
             summary = "Get task by ID",
-            description = "Retrieves a specific task. Access is restricted to STAFF members who are the owners of the case.",
+            description = "Retrieves a specific task. Access is restricted to STAFF members who are the owners of the task.",
             security = @SecurityRequirement(name = "Bearer Authentication")
     )
     @ApiResponses(value = {
             @ApiResponse(
                     responseCode = "200",
                     description = "Task retrieved successfully",
-                    content = @Content(schema = @Schema(implementation = TaskResponseData.class))
+                    content = @Content(schema = @Schema(hidden = true))
             ),
             @ApiResponse(
                     responseCode = "403",
@@ -143,12 +143,12 @@ public class TaskController {
             @ApiResponse(
                     responseCode = "201",
                     description = "Task created successfully",
-                    content = @Content(schema = @Schema(implementation = TaskResponseData.class))
+                    content = @Content(schema = @Schema(hidden = true))
             ),
             @ApiResponse(
                     responseCode = "400",
                     description = "Validation Error - Invalid input data or duplicate title",
-                    content = @Content(schema = @Schema(example = "{\"message\": \"Title is required\", \"status\": 400}"))
+                    content = @Content(schema = @Schema(hidden = true))
             ),
             @ApiResponse(
                     responseCode = "401",
@@ -172,7 +172,7 @@ public class TaskController {
     }
 
     @PutMapping
-    @PreAuthorize("@permissionChecker.isOwnersCase(#request.id) && hasRole('STAFF')")
+    @PreAuthorize("@permissionChecker.isOwnersTask(#request.id) && hasRole('STAFF')")
     @Operation(
             summary = "Update an existing task",
             description = "Updates task details. Restricted to the STAFF member who owns the specific task. Performs an update based on the request body.",
@@ -182,7 +182,7 @@ public class TaskController {
             @ApiResponse(
                     responseCode = "200",
                     description = "Task updated successfully",
-                    content = @Content(schema = @Schema(implementation = TaskResponseData.class))
+                    content = @Content(schema = @Schema(hidden = true))
             ),
             @ApiResponse(
                     responseCode = "400",
@@ -205,7 +205,7 @@ public class TaskController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("@permissionChecker.isOwnersCase(#id) && hasRole('STAFF')")
+    @PreAuthorize("@permissionChecker.isOwnersTask(#id) && hasRole('STAFF')")
     @Operation(
             summary = "Delete a task by ID",
             description = "Permanently removes a task from the system. Restricted to the STAFF member who owns the specific task.",
@@ -215,7 +215,7 @@ public class TaskController {
             @ApiResponse(
                     responseCode = "200",
                     description = "Task deleted successfully",
-                    content = @Content(schema = @Schema(implementation = ResponseData.class))
+                    content = @Content(schema = @Schema(hidden = true))
             ),
             @ApiResponse(
                     responseCode = "403",

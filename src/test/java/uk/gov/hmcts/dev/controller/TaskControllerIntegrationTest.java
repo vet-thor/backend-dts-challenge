@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 import uk.gov.hmcts.dev.config.ExceptionHandlerConfig;
 import uk.gov.hmcts.dev.config.LocaleConfiguration;
+import uk.gov.hmcts.dev.config.properties.ApiProperties;
 import uk.gov.hmcts.dev.dto.*;
 import uk.gov.hmcts.dev.model.TaskStatus;
 import uk.gov.hmcts.dev.repository.TaskRepository;
@@ -49,6 +50,7 @@ import static uk.gov.hmcts.dev.test_data.constants.ServiceTestConstants.*;
 @WebMvcTest(TaskController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import({LocaleConfiguration.class, SecurityConfig.class, ExceptionHandlerConfig.class})
+@DisplayName("TaskController")
 class TaskControllerIntegrationTest {
 
     @Autowired
@@ -71,11 +73,11 @@ class TaskControllerIntegrationTest {
     private PermissionChecker permissionChecker;
     @Autowired
     private ObjectMapper objectMapper;
-
-    private static final String BASE_URL = "/api/v1/tasks";
+    @Autowired
+    private ApiProperties apiProperties;
 
     @Nested
-    @DisplayName("Given a user who is authenticated creates a task")
+    @DisplayName("POST: Given a user who is authenticated creates a task")
     public class CreateTaskTest {
         @Test
         @WithMockUser(roles = VALID_ROLE_STAFF)
@@ -90,7 +92,7 @@ class TaskControllerIntegrationTest {
             given(taskService.createTask(any(CreateTaskRequest.class))).willReturn(taskResponseData);
             given(successMessageHelper.createTaskSuccessMessage()).willReturn("Task Created Successfully");
 
-            mockMvc.perform(post(BASE_URL)
+            mockMvc.perform(post(apiProperties.getTaskEndpoint())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(reviewEvidenceRequestPayload))
                     )
@@ -113,7 +115,7 @@ class TaskControllerIntegrationTest {
                 mockedSecurityUtils.when(SecurityUtils::getPrincipal).thenReturn(Optional.of(JwtUserDetails.builder().id(CREATED_BY_USER_ID).build()));
                 given(taskRepository.existsByTitleIgnoreCaseAndCreatedBy(REVIEW_EVIDENCE_TITLE, CREATED_BY_USER_ID)).willReturn(true);
 
-                mockMvc.perform(post(BASE_URL)
+                mockMvc.perform(post(apiProperties.getTaskEndpoint())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(reviewEvidenceRequestPayload))
                         )
@@ -129,7 +131,7 @@ class TaskControllerIntegrationTest {
 
             var invalidRequest = CreateTaskRequest.builder().build();
 
-            mockMvc.perform(post(BASE_URL)
+            mockMvc.perform(post(apiProperties.getTaskEndpoint())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(invalidRequest))
                             .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
@@ -149,7 +151,7 @@ class TaskControllerIntegrationTest {
             given(errorMessageHelper.unauthorizedErrorMessage()).willReturn(UNAUTHORISED_ERROR_MESSAGE);
 
             mockMvc.perform(
-                        post(BASE_URL)
+                        post(apiProperties.getTaskEndpoint())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(reviewEvidenceRequestPayload))
                     )
@@ -160,7 +162,7 @@ class TaskControllerIntegrationTest {
     }
 
     @Nested
-    @DisplayName("Given a user who is authenticated fetches a task(s)")
+    @DisplayName("GET: Given a user who is authenticated fetches a task(s)")
     public class GetTaskTest {
         @Test
         @WithMockUser(roles = VALID_ROLE_STAFF)
@@ -173,7 +175,7 @@ class TaskControllerIntegrationTest {
 
             given(taskService.getTask(any(SearchCriteria.class))).willReturn(expectedResponse);
 
-            mockMvc.perform(get(BASE_URL))
+            mockMvc.perform(get(apiProperties.getTaskEndpoint()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.tasks", hasSize(3)))
                     .andExpect(jsonPath("$.data.tasks[0].title").value(REVIEW_EVIDENCE_TITLE))
@@ -192,7 +194,7 @@ class TaskControllerIntegrationTest {
             given(taskService.getTask(any(SearchCriteria.class))).willReturn(expectedResponse);
 
             mockMvc.perform(
-                        get(BASE_URL)
+                        get(apiProperties.getTaskEndpoint())
                             .param("title", CLIENT_ASSESSMENT_TITLE)
                             .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
                     )
@@ -208,12 +210,12 @@ class TaskControllerIntegrationTest {
 
             var reviewEvidenceResponsePayload = listOfExpectedResponseMockData().getFirst();
 
-            given(permissionChecker.isOwnersCase(REVIEW_EVIDENCE_ID)).willReturn(true);
+            given(permissionChecker.isOwnersTask(REVIEW_EVIDENCE_ID)).willReturn(true);
             given(taskService.getTask(REVIEW_EVIDENCE_ID)).willReturn(TaskResponseData.builder()
                     .task(reviewEvidenceResponsePayload).build());
 
             mockMvc.perform(
-                            get(BASE_URL + "/{id}", REVIEW_EVIDENCE_ID)
+                            get(apiProperties.getTaskEndpoint() + "/{id}", REVIEW_EVIDENCE_ID)
                                     .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
                     )
                     .andExpect(status().isOk())
@@ -228,11 +230,11 @@ class TaskControllerIntegrationTest {
         void shouldNotAllowAccessToRecordByIdIfUserIsNotOwner_denyAccess() throws Exception {
             var taskId = UUID.randomUUID();
 
-            given(permissionChecker.isOwnersCase(taskId)).willReturn(false);
+            given(permissionChecker.isOwnersTask(taskId)).willReturn(false);
             given(errorMessageHelper.unauthorizedErrorMessage()).willReturn("You do not have permission to access this resource");
 
             mockMvc.perform(
-                            get(BASE_URL + "/{id}", taskId)
+                            get(apiProperties.getTaskEndpoint() + "/{id}", taskId)
                     )
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.status").value("403 FORBIDDEN"))
@@ -241,7 +243,7 @@ class TaskControllerIntegrationTest {
     }
 
     @Nested
-    @DisplayName("Given a user who is authenticated updates a task. Only owner can update task")
+    @DisplayName("PUT: Given a user who is authenticated updates a task. Only owner can update task")
     public class UpdateTaskTest {
         @Test
         @WithMockUser(roles = "STAFF")
@@ -267,12 +269,12 @@ class TaskControllerIntegrationTest {
                     .task(modifiedRecord)
                     .build();
 
-            given(permissionChecker.isOwnersCase(REVIEW_EVIDENCE_ID)).willReturn(true);
+            given(permissionChecker.isOwnersTask(REVIEW_EVIDENCE_ID)).willReturn(true);
             given(taskService.updateTask(any(UpdateTaskRequest.class))).willReturn(responseData);
             given(successMessageHelper.updateTaskSuccessMessage()).willReturn("Task updated successfully");
 
             mockMvc.perform(
-                            put(BASE_URL)
+                            put(apiProperties.getTaskEndpoint())
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content(objectMapper.writeValueAsString(updateTaskRequest))
                     )
@@ -292,7 +294,7 @@ class TaskControllerIntegrationTest {
             var updateTaskRequest = CreateTaskRequest.builder().build();
 
             mockMvc.perform(
-                        put(BASE_URL)
+                        put(apiProperties.getTaskEndpoint())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(updateTaskRequest))
                     )
@@ -310,10 +312,10 @@ class TaskControllerIntegrationTest {
                     .status(TaskStatus.COMPLETED)
                     .build();
 
-            given(permissionChecker.isOwnersCase(REVIEW_EVIDENCE_ID)).willReturn(true);
+            given(permissionChecker.isOwnersTask(REVIEW_EVIDENCE_ID)).willReturn(true);
             given(errorMessageHelper.unauthorizedErrorMessage()).willReturn("You are not authorised to access this resource");
 
-            mockMvc.perform(put(BASE_URL)
+            mockMvc.perform(put(apiProperties.getTaskEndpoint())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request))
                     )
@@ -323,19 +325,19 @@ class TaskControllerIntegrationTest {
     }
 
     @Nested
-    @DisplayName("Given a user who is authenticated deletes a task. Only owner can delete task")
+    @DisplayName("DELETE: Given a user who is authenticated deletes a task. Only owner can delete task")
     public class DeleteTaskTest {
         @Test
         @WithMockUser(roles = VALID_ROLE_STAFF)
         @DisplayName("Should delete a task when a task is deleted by owner")
         public void shouldDeleteTask() throws Exception {
 
-            given(permissionChecker.isOwnersCase(REVIEW_EVIDENCE_ID)).willReturn(true);
+            given(permissionChecker.isOwnersTask(REVIEW_EVIDENCE_ID)).willReturn(true);
             given(successMessageHelper.deleteTaskSuccessMessage()).willReturn(RESOURCE_DELETED_SUCCESSFULLY);
 
             // Execute & Verify
             mockMvc.perform(
-                            delete(BASE_URL + "/{id}", REVIEW_EVIDENCE_ID)
+                            delete(apiProperties.getTaskEndpoint() + "/{id}", REVIEW_EVIDENCE_ID)
                                     .with(user(VALID_USERNAME).roles(VALID_ROLE_STAFF))
                     )
                     .andExpect(status().isOk())
@@ -348,12 +350,12 @@ class TaskControllerIntegrationTest {
         @DisplayName("Should not delete a task when not created by user")
         public void shouldNotDeleteWhenUserIsNotOwner_denyAccess() throws Exception {
 
-            given(permissionChecker.isOwnersCase(REVIEW_EVIDENCE_ID)).willReturn(false);
+            given(permissionChecker.isOwnersTask(REVIEW_EVIDENCE_ID)).willReturn(false);
             given(errorMessageHelper.unauthorizedErrorMessage()).willReturn(UNAUTHORISED_ERROR_MESSAGE);
 
             // Execute & Verify
             mockMvc.perform(
-                            delete(BASE_URL + "/{id}", REVIEW_EVIDENCE_ID)
+                            delete(apiProperties.getTaskEndpoint() + "/{id}", REVIEW_EVIDENCE_ID)
                     )
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.data.error").value(UNAUTHORISED_ERROR_MESSAGE));
@@ -369,7 +371,7 @@ class TaskControllerIntegrationTest {
 
             // Execute & Verify
             mockMvc.perform(
-                            delete(BASE_URL + "/{id}", REVIEW_EVIDENCE_ID)
+                            delete(apiProperties.getTaskEndpoint() + "/{id}", REVIEW_EVIDENCE_ID)
                                     .with(user(VALID_USERNAME).roles(VALID_ROLE_USER))
                     )
                     .andExpect(status().isForbidden())
